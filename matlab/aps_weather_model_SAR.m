@@ -66,7 +66,7 @@ function [] = aps_weather_model_SAR(model_type)
 % DB 	02/2016     Close netcdf files
 % DB    04/2016     Branch into weather model script and include merra too
 % SSS   04/2016     Clear variables such memory need is reduced
-
+% DB    07/2016     redefine hydrostatic delay to be based on surface pressure.
 
 fig_test = 1;           % when 1 show the dem as debug figure
 save_3D_delays = 0;     % When 1 saves the tropopsheric delays for each x,y and with height

@@ -53,6 +53,7 @@ function [] = aps_wrf_SAR()
 % 27/09/2015    DB      Separate the DEM loading, ask for number of domains.
 % 28/09/2015    DB      Also save the delay computation for a grid or z to include Pirate compartibility.
 % 28/09/2015    DB      Include multi-core from matlab
+% 07/07/2016    DB      Redefine hydrostatic delay to be based on surface pressure.
  
 save_complete=0;        % save support information when 0
 
@@ -281,9 +282,19 @@ for d = 1:n_dates
         ylist = ylist(ix);
         latlist = latlist(ix);
         lonlist = lonlist(ix);
-
         latlist=double(latlist);
         lonlist=double(lonlist);
+        
+        numy = length(unique(latlist));
+        numx = length(unique(lonlist));
+        ulatlist = unique(latlist);
+        ulonlist = unique(lonlist);
+        uxlist = unique(xlist);
+        uylist = unique(ylist);
+        
+        
+
+       
         
         if save_complete==0
             % saving the information for support plotting 
@@ -346,6 +357,14 @@ for d = 1:n_dates
 
         %% Calculate Geometric Height, Z
         Z = (H.*Re)./(g/g0.*Re - H);
+        
+        % Find middle of scene to work out glocal and Rlocal for use later
+        midx = round(mean(uxlist));
+        midy = round(mean(uylist));
+        glocal = g(midy,midx,1);
+        Rlocal = Re(midy,midx,1);
+        
+        
 
         %% Find middle of scene to work out glocal and Rlocal for use later
         cdslices = maxdem/vertres +1;
@@ -354,7 +373,7 @@ for d = 1:n_dates
         cdstack_wet = zeros(size(lonlist,1),cdslices);
 
         XI=(0:zincr:zref)';
-        %gh = glocal.*(Rlocal./(Rlocal+XI)).^2; %gravity with height for XI height range
+        gh = glocal.*(Rlocal./(Rlocal+XI)).^2; %gravity with height for XI height range
 
         % Interpolate Temp P and e from 0:20:15000 m
         % then integrate using trapz to estimate delay as function of height
@@ -383,8 +402,9 @@ for d = 1:n_dates
             Lw = (10^-6).*-1*flipud(cumtrapz(flipud(XI),flipud(tmp1)));
             % L is zenith delay one way in metres
             tmp2 = k1.*YPI./YTI;
-            Ld = (10^-6).*-1*flipud(cumtrapz(flipud(XI),flipud(tmp2)));
-
+            %Ld = (10^-6).*-1*flipud(cumtrapz(flipud(XI),flipud(tmp2)));             % This is using P/T expression (Hanssen, 2001)
+            gm = glocal; 
+            Ld = (10^-6).*((k1*Rd/gm).*(YPI - YPI(zref/zincr +1)));                 % This is P0 expression (Hanssen, 2001)
 
             % Interpolate important part (i.e. total delay at elevations
             % less than maxdem) at high res i.e. vertres, and put in cdstack.

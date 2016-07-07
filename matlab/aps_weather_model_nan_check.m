@@ -35,7 +35,7 @@ if Pressure_level(1)<Pressure_level(end) % first level is top APS
     step_level = [1:length(Pressure_level)]';
 end
 
-% loopign though and use TEMP as inital check for nan
+% looping though and use TEMP as inital check for nan
 n_pixels = size(P,1)*size(P,2);
 for k=1:length(Pressure_level)
     ix_nan = isnan(Temp(:,:,step_level(k)));
