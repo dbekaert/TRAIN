@@ -1,0 +1,36 @@
+<graph id="ReprojectionGraph">
+  <version>1.0</version>
+  <node id="reprojection">
+    <operator>Reproject</operator>
+    <sources>
+      <source>${sourceProducts}</source>
+    </sources>
+<parameters>
+    <wktFile/>
+    <crs>GEOGCS["WGS84(DD)", 
+      DATUM["WGS84", 
+        SPHEROID["WGS84", 6378137.0, 298.257223563]], 
+      PRIMEM["Greenwich", 0.0], 
+      UNIT["degree", 0.017453292519943295], 
+      AXIS["Geodetic longitude", EAST], 
+      AXIS["Geodetic latitude", NORTH]]</crs>
+    <resampling>Nearest</resampling>
+    <referencePixelX/>
+    <referencePixelY/>
+    <easting/>
+    <northing/>
+    <orientation/>
+    <pixelSizeX/>
+    <pixelSizeY/>
+    <width/>
+    <height/>
+    <tileSizeX/>
+    <tileSizeY/>
+    <orthorectify>false</orthorectify>
+    <elevationModelName/>
+    <noDataValue>NaN</noDataValue>
+    <includeTiePointGrids>true</includeTiePointGrids>
+    <addDeltaBands>false</addDeltaBands>
+</parameters>
+  </node>
+</graph>

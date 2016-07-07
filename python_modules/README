@@ -1,0 +1,7 @@
+
+
+# to get the ecmwf api set-up you can use:
+pip install --user https://software.ecmwf.int/wiki/download/attachments/47287906/ecmwf-api-client-python.tgz
+# make sure you get also an account and follow the information on their website
+
+

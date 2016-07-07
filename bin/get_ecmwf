@@ -1,0 +1,58 @@
+#!/bin/bash
+
+#     Copyright (C) 2015  Bekaert David - University of Leeds
+#     Email: eedpsb@leeds.ac.uk or davidbekaert.com
+#
+#     This program is free software; you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation; either version 2 of the License, or
+#     (at your option) any later version.
+# 
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License along
+#     with this program; if not, write to the Free Software Foundation, Inc.,
+#     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+# modified from Richard Walters
+# Bekaert David - February 2013
+
+if [ $# == 0  ] ; then
+  echo  "Program to download ecmwf ERA-I data to your current location"
+  echo -e "usage: get_ecmwf.csh password username filelist"
+  echo -e "  e.g. get_ecmwf.csh XXX JohnDoe /nfs/a1/homes/eedpsb/datelist.txt"
+  exit 127
+fi
+
+if [ -r "/apps/ncftp/setup.d/bash" ] ; then
+	. /apps/ncftp/setup.d/bash
+fi
+#app setup ncftp
+
+
+password=$1
+username=$2
+filelist=$3
+
+ftp_site='ftp.badc.rl.ac.uk'
+
+
+echo $curdir
+for f in `cat $filelist`
+do
+        date=`echo $f | gawk 'BEGIN {FS="/"} {print substr($(NF),5,8)}'`
+        day=`echo $f | gawk 'BEGIN {FS="/"} {print substr($(NF),11,2)}'`
+	month=`echo $f | gawk 'BEGIN {FS="/"} {print substr($(NF),9,2)}'`
+	year=`echo $f | gawk 'BEGIN {FS="/"} {print substr($(NF),5,4)}'`
+	
+	echo $day
+file=/.badc.old/ecmwf-era-interim/data/gg/ap/$year/$month/$day/${f}
+
+	echo $file
+	ncftpget -u $username -p $password $ftp_site ./. $file
+done
+

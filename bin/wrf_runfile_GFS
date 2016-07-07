@@ -1,0 +1,118 @@
+#!/bin/tcsh 
+# For this script you need to specify the file list with the dates to be processed.
+# Hard coded in this script you need to put the software directory for the WPS package
+# as well as the data directory where you have the data folder strucutre YYYYMMDD with the GFS data
+# modifications
+# DB 	22/09/2014	Add more input arguments to make it more independent to run
+#
+#     Copyright (C) 2015  Bekaert David - University of Leeds
+#     Email: eedpsb@leeds.ac.uk or davidbekaert.com
+# 
+#     This program is free software; you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation; either version 2 of the License, or
+#     (at your option) any later version.
+# 
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License along
+#     with this program; if not, write to the Free Software Foundation, Inc.,
+#     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+if ($#argv != 3) then # DB
+        echo "wrf_runfile_GFS datelist data_dir software_dir"
+	echo "e.g. wrf_runfile_GFS datelist_GFS.txt /nfs/a147/insar/mexico/WRF /nfs/a147/insar/mexico/WRF/WRF_running/WPS"
+endif
+
+
+set datelist = $argv[1]
+set data_dir = $argv[2]
+set software_dir = $argv[3]
+
+set curdir=`pwd`
+
+foreach date(`cat $datelist`)
+	cd $software_dir
+   	echo $date
+	echo "software dir: $software_dir"
+	echo "data dir: $data_dir"
+
+	# datapath
+	set dates=$data_dir/$date/files
+	
+	## clean files
+	WPS_clean
+
+	## copy over the files
+	rm -rf namelist.wps
+	cp $dates/../namelist.wps .
+	
+		
+	## UNGRIB
+	./link_grib.csh $dates/
+	# Creates GRIBFILE.AAA, GRIBFILE.AAB as soft links to global weather model data - one for each date/time
+	
+	rm -rf Vtable
+	ln -sf ungrib/Variable_Tables/Vtable.GFS Vtable
+	# link to Vtable for input grib type to give filed info etc.
+	
+	## UNGRIB
+	rm -rf log.ungrib ungrib.log
+	./ungrib.exe >& log.ungrib
+	# convert grib files to netcdf files - one for each grib file
+	
+	## GEOGRID
+	rm -rf geogrid.log log.geogrid
+	./geogrid.exe > geogrid.log
+	# set up geographical grid, including all static data (topo, land use etc.)
+	
+	## METGRID
+	rm -rf log.metgrid metgrid.log
+	./metgrid.exe >& log.metgrid
+	# creates met_em.d[domain#].yyyy-mm-dd_hh:mm:ss.nc files. Interpolates global netcdf files extracted using UNGRIB onto geographical grid set up by GEOGRID
+		
+	######### In WRF folder WRFV3/test/em_real
+	cd ../WRFV3/test/em_real/
+	echo
+        set current_dir=`pwd`
+        echo moving to $current_dir
+	
+	#### remove previous runfile
+	WRF_clean
+	
+	#### set up the new links
+	echo 
+	echo "ln -s ../../../WPS/met_em*.nc ."
+	rm -rf met_em*.nc
+	ln -s ../../../WPS/met_em*.nc .
+	# link met_em files created by METGRID to WRF folder
+	
+	#### copy the new namelist.input files
+	echo 
+	echo "cp $dates/../namelist.input ."
+	rm -rf namelist.input namelist.output
+	cp $dates/../namelist.input .
+	
+	#### run the real program
+	./real.exe
+	
+	#### run wrf
+	mpiexec -n 15 ./wrf.exe
+	
+	### move the generated files back to the directory
+	echo 
+	echo "mv wrfo* wrfp* rsl.* $dates/.."
+	mv wrfo* wrfp* rsl.* $dates/..
+
+        # clean all files
+  #      cd $software_dir
+  #      WPS_clean
+  #      cd ../WRFV3/test/em_real/
+  #      WRF_clean
+        cd $curdir
+	
+end

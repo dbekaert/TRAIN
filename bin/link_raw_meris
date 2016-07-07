@@ -1,0 +1,232 @@
+#!/bin/bash
+
+# Bekaert David - February 2013
+
+# SYNTAX: Script to set up directory structure [YYYYMMDD] of raw data from Meris.
+# Call this program by:	link_raw_meris Your_data_path	your_processing_path
+#
+# - data can be, but does not have to be organised in [YYYYMMDD] folders
+
+#
+#     Copyright (C) 2015  Bekaert David - University of Leeds
+#     Email: eedpsb@leeds.ac.uk or davidbekaert.com
+# 
+#     This program is free software; you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation; either version 2 of the License, or
+#     (at your option) any later version.
+# 
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License along
+#     with this program; if not, write to the Free Software Foundation, Inc.,
+#     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+# -------------------------------------------------------------------------------------- #
+# 11/2010	DB:	modified from link_raw script stamps
+# -------------------------------------------------------------------------------------- #
+
+
+
+if [ $# == 0  ];then
+
+echo -e "USAGE  : \t `basename $0` FULL_PATH_to_data  FULL_PATH_to_processing_directory(optional) reprojectionflag(optional) files_2B_linked(optional)"
+echo
+echo -e "Example: \t `basename $0`  /data_ESA/track394_is6/ \`pwd\`/"
+echo -e "You can specify additional:"
+echo -e "FULL_PATH_to_processing_directory to where symbolic links needs to be created to"
+echo -e "a reprojectionflag either 0 or 1 (perform reprojection using beam commandline)"
+echo -e "a file containing the date folders (YYYYMMDD) to be linked"
+
+
+exit 127
+fi
+
+
+
+
+inpath=$1
+linkout=$2
+reprojectionflag=$3
+linkoutdates=$4
+
+
+# condition for dir or file
+echo "Checking if raw data is already in dir [YYYYMMDD] setup"
+cd $inpath  
+dir=`ls -d [0-9]??????? 2>/dev/null`
+
+##### files are not in date dir set-up
+if [ -z "$dir" ]; then
+   files=`find $inpath -maxdepth 1 -name "MER*" -type f`  && sensor='MERIS'
+
+   #### Check if files are unzipped
+
+	zipfiles=`ls *.zip  2>/dev/null`
+	for f in $zipfiles; do
+  		unzip $f
+	done
+   
+
+	gzipfiles=`ls *.gz  2>/dev/null`
+ 	for f in $gzipfiles; do
+                gunzip $f
+        done
+
+   files=`find $inpath -maxdepth 1 -name "MER*" -type f`  && sensor='MERIS'
+else
+   files=`find $inpath -maxdepth 1 -name "MER*" -type f`  && sensor='MERIS'
+   #### Check if files are unzipped
+echo $files
+        zipfiles=`ls *.zip  2>/dev/null`
+        for f in $zipfiles; do
+                unzip $f
+        done
+        gzipfiles=`ls *.gz  2>/dev/null`
+        for f in $gzipfiles; do
+                gunzip $f
+        done
+
+   files=`find $inpath -maxdepth 1 -name "MER*" -type f`  && sensor='MERIS'
+fi 
+
+
+##### files are in data dir set-up
+if [ -n "$dir" ]; then
+   files=`find  -maxdepth 1 -name "MER*" -type f`  && sensor='MERIS'
+   #### Check if files are unzipped
+   if [ -z "$files" ]; then
+        zipfiles=`ls *.zip  2>/dev/null`
+        for f in $zipfiles; do
+                unzip $f
+        done
+        gzipfiles=`ls *.gz  2>/dev/null`
+
+        for f in $gzipfiles; do
+                gunzip $f
+        done
+
+   fi
+   files=`find $inpath -maxdepth 1 -name "MER*" -type f`  && sensor='MERIS'
+
+
+fi
+dir2=`ls -d [0-9]??? 2>/dev/null`
+
+# organize in data dir setup [YYYYMMDD]
+#if [ "$sensor" = "MERIS" ] && [ -n "$files" ];
+#  then
+#  echo "Sensor is MERIS"
+   files=`find $inpath -maxdepth 1 -name "MER*" -type f`  && sensor='MERIS'
+  for f in $files; do
+   	date=`echo $f | gawk 'BEGIN {FS="/"} {print substr($(NF),15,8)}'`
+	datedir=$inpath/$date
+	testdate=`ls $datedir  2>/dev/null`
+	mkdir $datedir 2>/dev/null
+   	mv $f $datedir/  
+  done
+#fi
+files=`find $inpath -name "MER*" -type f`
+if [ -n "$files" ];
+then
+	sensor='MERIS'
+else
+	  sensor=''
+fi
+echo $sensor
+
+
+##### check if the files are already reprojected
+if [ $# != 1 ];
+	then
+	if [ $# -gt 2 ] && [ $reprojectionflag -eq 1 ];
+		then
+		echo "Perform reprojection"
+		if [ "$sensor" = "MERIS" ];
+  		then
+  		dir=`find  $inpath -name "[0-9]???????" -type d`
+  		for d in $dir; do
+        		file=`ls -1 $d/MER*.N1`
+			file_reproject=`ls -1 $d/MER*.N1_reprojected.tif 2>/dev/null`
+			if [ -z "$file_reproject" ];
+			then
+				if [ -e "$file" ];
+				then
+					echo `gpt.sh $APS_toolbox_scripts/reproject_params.xml -t $file'_reprojected.tif' -f GeoTIFF $file`
+				fi
+			fi
+  		done
+		fi
+	fi
+	
+        if [ $# -gt 2 ] && [ $reprojectionflag -eq 2 ];
+                then
+                echo "Perform reprojection"
+                if [ "$sensor" = "MERIS" ];
+                then
+                dir=`find  $inpath -name "[0-9]???????" -type d`
+                for d in $dir; do
+                        file=`ls -1 $d/MER*.N1`
+                        file_reproject=`ls -1 $d/MER*.N1_reprojected.tif 2>/dev/null`
+                        #if [ -z "$file_reproject" ];
+                        #then
+                                if [ -e "$file" ];
+                                then
+                                        echo `gpt.sh $APS_toolbox_scripts/reproject_params_subset.xml -t $file'_reprojected.tif' -f GeoTIFF $file`
+                                fi
+                        #fi
+                done
+                fi
+        fi
+
+
+fi
+
+cd $inpath
+
+# setting up symbolic links
+echo "Date dir has been set-up"
+if [ $# -gt 1 ];then
+	echo "Start linking files to $linkout"
+	# if date struture was already set-up, then sensor is not yet defined
+	# check a data folder for the type of file
+	if [ "$sensor" = "MERIS" ];
+	then
+
+          #check here if the thrid argument exist.
+          # if not link all the date folder,
+          # otherwize link those contained in the file only
+          if [ $# -eq 4 ];then
+                echo link based on file
+
+                for d in `cat $linkoutdates`; do
+			echo $d
+                      filesin=`ls -1 $d/*`
+                      datedirnew=$linkout/${d##*/}
+                      mkdir -p $datedirnew
+                      cd $datedirnew
+                      for f in $filesin; do
+                          ln -s $inpath/$f 2>/dev/null
+                      done
+			cd $inpath
+
+                done
+           else
+                # All directories
+		dir=`find  $inpath -name "[0-9]???????" -type d`
+		for d in $dir; do
+        		filesin=`ls -1 $d/*`
+        		datedirnew=$linkout/${d##*/}
+        		mkdir -p $datedirnew
+        		cd $datedirnew
+        		for f in $filesin; do
+                		ln -s $f
+        		done
+  		done
+          fi
+	fi
+fi

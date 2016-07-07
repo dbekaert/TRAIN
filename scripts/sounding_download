@@ -1,0 +1,101 @@
+#!/bin/sh
+# script to download sounding data from the university of Wyoming
+# As output this script generates a folder structure based on 
+# region/station_number and a txt file [station_yyyymmdd_hh].
+# Station information is saved as [station_number _info]
+# http://weather.uwyo.edu/upperair/sounding.html
+#
+# Written by David bekaert and Richard Rigby 
+# -- University of Leeds --
+#
+# modifications:
+#
+# No claims can be made for damge resulting from this script
+#
+#     Copyright (C) 2015  Bekaert David - University of Leeds
+#     Email: eedpsb@leeds.ac.uk or davidbekaert.com
+# 
+#     This program is free software; you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation; either version 2 of the License, or
+#     (at your option) any later version.
+# 
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License along
+#     with this program; if not, write to the Free Software Foundation, Inc.,
+#     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+
+station=16245 #acapulco "76805" # hierro "60018"
+region="eu" # guerrero "na" #hierro "af"
+year="2011 2012"
+month="01 02 03 04 05 06 07 08 09 10 11 12"
+day="01 02 03 04 05 06 07 08 09 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31"
+hour="00 12"
+savepath="/nfs/a1/insar/italy/sounding_data"
+
+for myRegion in ${region}
+do
+echo "Region $myRegion"
+# Check if the region folder already exist, else make it
+if [ ! -d "$savepath/$myRegion" ]
+then
+	mkdir "$savepath/$myRegion"
+fi
+
+for myStation in ${station}
+do
+echo "Station number: $myStation"
+# Check if the station folder already exist, else make it
+if [ ! -d "$savepath/$myRegion/$myStation" ]
+then
+        mkdir "$savepath/$myRegion/$myStation"
+fi
+# the full directory for this station 
+station_dir=$savepath/$myRegion/$myStation/
+
+for myYear in ${year}
+do
+
+for myMonth in ${month}
+do
+
+for myDay in ${day}
+do
+
+for myHr in ${hour}
+do
+	# downloading the data file by file
+	curl "http://weather.uwyo.edu/cgi-bin/sounding?region=${myRegion}&TYPE=TEXT%3ALIST&YEAR=${myYear}&MONTH=${myMonth}&FROM=${myDay}${myHr}&TO=${myDay}${myHr}&STNM=${myStation}" 2>/dev/null | sed -n -n "/^-----/,/<\/PRE>/p" | sed '$d' > $station_dir${myStation}_${myYear}${myMonth}${myDay}_${myHr}.txt
+	# Checking if there is actual data for this requested time
+	if [ ! -s "$station_dir${myStation}_${myYear}${myMonth}${myDay}_${myHr}.txt" ];
+	then 
+		echo "Station ${myStation}: date ${myYear}${myMonth}${myDay} and hour ${myHr} does not exist"
+		rm $station_dir${myStation}_${myYear}${myMonth}${myDay}_${myHr}.txt
+	fi
+
+	# save the station information in a seperate file
+	# check if the file exit or not
+	myStation_info=$station_dir${myStation}_info.txt
+	if [ ! -s "$station_dir$myStation_info" ];
+	then
+		echo "station file info"
+		#grep "Station number" > $myStation_info 
+		#grep "Station latitude" > $myStation_info 
+		#grep "Station longitude" > $myStation_info
+		#grep "Station elevation" > $myStation_info
+	fi
+
+
+done
+done
+done
+done
+done
+done
+

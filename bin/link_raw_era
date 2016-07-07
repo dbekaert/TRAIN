@@ -1,0 +1,143 @@
+#!/bin/bash
+
+# Bekaert David - February 2013
+
+# SYNTAX: Script to set up directory structure [YYYYMMDD] of raw data from ERA-I.
+# Call this program by:	link_raw_meris Your_data_path	your_processing_path(optional) files_2B_linked(optional)
+#
+# - data can be, but does not have to be organised in [YYYYMMDD] folders
+
+#
+#     Copyright (C) 2015  Bekaert David - University of Leeds
+#     Email: eedpsb@leeds.ac.uk or davidbekaert.com
+# 
+#     This program is free software; you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation; either version 2 of the License, or
+#     (at your option) any later version.
+# 
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License along
+#     with this program; if not, write to the Free Software Foundation, Inc.,
+#     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+
+# -------------------------------------------------------------------------------------- #
+# 11/2010	DB:	modified from link_raw script stamps
+# 10/2013 	DB:  	convert to ERA-I and include extra options
+# 10/2013       DB:	Include the option to sort data while parts are already sorted
+# -------------------------------------------------------------------------------------- #
+
+
+if [ $# == 0  ];then
+
+echo -e "USAGE  : \t `basename $0` FULL_PATH_to_data  FULL_PATH_to_processing_directory files_2B_linked(optional)"
+echo
+echo -e "Example: \t `basename $0`  /data_ESA/track394_is6/ \`pwd\`/"
+echo -e "You can specify additional a file containing the folders or specific gcc*.nc files to be linked"
+
+
+exit 127
+fi
+
+
+
+inpath=$1
+linkout=$2
+linkoutdates=$3
+
+
+# condition for dir or file
+echo "Checking if raw data is already in dir [YYYYMMDD] setup"
+cd $inpath  
+dir=`ls -d [0-9]??????? 2>/dev/null`
+
+##### files are in data dir set-up
+if [ -z "$dir" ]; then
+  files=`find -maxdepth 1 -name "ggap*nc" -type f`
+  sensor='ERA'
+fi
+if [ -n "$dir" ]; then
+  files=`find -maxdepth 1  -name "ggap*nc" -type f` 
+   sensor='ERA'
+fi
+if [ -n "$dir" ] && [ -z "$files" ]; then
+   files2=`find -maxdepth 2 -name "ggap*nc" -type f`
+   if [ -n "$dir" ] && [ -z "$files2" ]; then
+	echo "no valid data for linking on  $inpath"
+   else
+	sensor='ERA'
+   fi
+fi
+
+
+# organize in data dir setup [YYYYMMDD]
+if [ "$sensor" = "ERA" ] && [ -n "$files" ];
+  then
+  echo "ERA-I data"
+  for f in $files; do
+   	date=`echo $f | gawk 'BEGIN {FS="/"} {print substr($(NF),5,8)}'`
+	datedir=$inpath/$date
+   	
+	mkdir $datedir 2>/dev/null
+   	mv $f $datedir/ 2>/dev/null 
+  done
+fi
+
+if [ $# != 1 ];then
+	# setting up symbolic links
+	echo "Date dir has been set-up"
+	echo "Start linking files to $linkout"
+	# if date struture was already set-up, then sensor is not yet defined
+	# check a data folder for the type of file
+	echo $sensor
+	if [ "$sensor" = "ERA" ];
+	  then
+	  #check here if the thrid argument exist.
+	  # if not link all the date folder,
+	  # otherwize link those contained in the file only
+	  if [ $# == 3 ];then
+		echo link based on file
+
+		for d in `cat $linkoutdates`; do
+			echo $d | grep ggap  1>/dev/null 
+			if [ `echo $?` -eq 0 ]; then
+                            date=`echo $d | gawk 'BEGIN {FS="/"} {print substr($0,length($0)-14,length($0)-11)}'`
+                            filesin=`ls -1 $inpath/${date}/${d}`
+			    datedirnew=$linkout/${date##*/}
+			    mkdir -p $datedirnew
+			    cd $datedirnew
+                            for f in $filesin; do
+                            	echo $f
+				ln -s $f 2>/dev/null
+                            done
+                        else 
+                       	    filesin=`ls -1 $d/*`
+	 		    datedirnew=$linkout/${d##*/}
+                            mkdir -p $datedirnew
+                            cd $datedirnew
+                            for f in $filesin; do
+		                     ln -s $inpath/$f 2>/dev/null
+                            done
+			fi
+		done
+	   else  
+	  	# All directories
+	  	dir=`find  $inpath -name "[0-9]???????" -type d`
+	  	for d in $dir; do
+	  		filesin=`ls -1 $d/*`
+	  		datedirnew=$linkout/${d##*/}
+	  		mkdir -p $datedirnew
+  			cd $datedirnew
+  			for f in $filesin; do
+  				ln -s $f 2>/dev/null 
+  			done
+  		done
+          fi
+	fi
+fi

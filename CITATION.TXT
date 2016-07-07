@@ -1,0 +1,12 @@
+When using TRAIN cite as follows:
+Bekaert, D.P.S., Walters, R.J., Wright, T.J., Hooper, A.J., and Parker, D.J. (2015c), Statistical comparison of InSAR tropospheric correction techniques, Remote Sensing of Environment, doi: 10.1016/j.rse.2015.08.035
+
+You can use the following bibtex entry:
+@article{Bekaert2015c,
+author = "D.P.S. Bekaert and R.J. Walters and T.J. Wright and A.J. Hooper and D.J. Parker",
+title = "Statistical comparison of InSAR tropospheric correction techniques",
+journal = "Remote Sensing of Environment ",
+year = "2015",
+issn = "0034-4257",
+doi = "http://dx.doi.org/10.1016/j.rse.2015.08.035",
+}

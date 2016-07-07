@@ -1,0 +1,46 @@
+#!/bin/bash
+
+#
+#     Copyright (C) 2015  Bekaert David - University of Leeds
+#     Email: eedpsb@leeds.ac.uk or davidbekaert.com
+# 
+#     This program is free software; you can redistribute it and/or modify
+#     it under the terms of the GNU General Public License as published by
+#     the Free Software Foundation; either version 2 of the License, or
+#     (at your option) any later version.
+# 
+#     This program is distributed in the hope that it will be useful,
+#     but WITHOUT ANY WARRANTY; without even the implied warranty of
+#     MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#     GNU General Public License for more details.
+# 
+#     You should have received a copy of the GNU General Public License along
+#     with this program; if not, write to the Free Software Foundation, Inc.,
+#     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+#
+
+ftp_server=ftp://eoa-up.eo.esa.int 
+Downloadfile=~/track_293/InSAR/dates.txt
+USERNAME=XXXX
+PASSWORD=YYYY
+track=293
+
+
+# script to download meris data from the ESA ftp website
+# By David Bekaert - University of Leeds 2014
+
+nfiles=`awk '{print NR}' $Downloadfile`
+
+for i in $nfiles 
+do
+
+	echo $i
+        cur_file=`awk "FNR == $i {print $1}" $Downloadfile`
+
+	ftp_year=`echo $cur_file | awk '{print substr($0,1,4)}'`
+	ftp_month=`echo $cur_file | awk '{print substr($0,5,2)}'`
+	ftp_day=`echo $cur_file | awk '{print substr($0,7,2)}'`
+	echo Downloading... 
+	echo $ftp_server/mer_rr__2p/$ftp_year/$ftp_month/$ftp_day/MER_RR__2P*00$track*
+	wget --ftp-user=$USERNAME --ftp-password=$PASSWORD $ftp_server/mer_rr__2p/$ftp_year/$ftp_month/$ftp_day/MER_RR__2P*00$track*
+done
