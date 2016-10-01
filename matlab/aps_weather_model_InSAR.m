@@ -39,7 +39,7 @@ function [] = aps_weather_model_InSAR(model_type)
 %                   modular approach
 % 04/2016   DB      Forgot to remove call to old script
 % 05/2016   DB      Include merra2
-
+% 10/2016   DB 	    Include a fix inconsistent ifg matrix for stamps users who dropped ifgs
 
 % Filename suffix of the output files
 wetoutfile = '_ZWD.xyz';
@@ -243,8 +243,6 @@ eval(['ph_SAR_' model_type '_wet= -4*pi./lambda.*d_wet;']);         % ph_SAR_era
 
 
 %% Computing the interferometric tropopsheric delays
-
-
 % removing the dates for which there is no data.
 if isempty(ix_no_weather_model_data)~=1
     for k=1:length(ix_no_weather_model_data)    
@@ -259,7 +257,6 @@ if isempty(ix_no_weather_model_data)~=1
 end
 
 % computing the interferometric delay for each remaining interferogram
-n_ifg = size(ifgs_ix,1);
 if isempty(ifgs_ix)
     fprintf(['Not enough ' upper(model_type) ' data to compute interferometric delays...\n'])
 end
@@ -268,8 +265,8 @@ eval(['ph_tropo_' model_type '= zeros([size(lonlat,1) n_ifg]);']);          % ph
 eval(['ph_tropo_' model_type '_hydro= zeros([size(lonlat,1) n_ifg]);']);    % ph_tropo_era_hydro = zeros([size(lonlat,1) n_ifg]);
 eval(['ph_tropo_' model_type '_wet= zeros([size(lonlat,1) n_ifg]);']);      % ph_tropo_era_wet = zeros([size(lonlat,1) n_ifg]);
 
-
-for k=1:n_ifg
+n_ifg_kept = size(ifgs_ix,1);
+for k=1:n_ifg_kept
     % add extra flag that requires both master and slave SAR delay to be
     % present otherwize, its still a sar delay!
     good_ifg_data = 1;
