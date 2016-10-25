@@ -67,6 +67,7 @@ function [] = aps_weather_model_SAR(model_type)
 % DB    04/2016     Branch into weather model script and include merra too
 % SSS   04/2016     Clear variables such memory need is reduced
 % DB    07/2016     redefine hydrostatic delay to be based on surface pressure.
+% DB    08/2016     Uncomment a keyboard
 
 fig_test = 1;           % when 1 show the dem as debug figure
 save_3D_delays = 0;     % When 1 saves the tropopsheric delays for each x,y and with height
@@ -215,10 +216,9 @@ for d = 1:n_dates
             % is defined in the same way. Weatehr models can be [0 360]
             % degrees. User can be [-180 180] unlikely [0 360]
             if strcmpi(lon0360_flag,'y')
-                fprintf('This needs to be defined better and some checks are needed \n')
+                % fprintf('This needs to be defined better and some checks are needed \n')
                 % not all pixels should be shifted.
   
-                keyboard
                 if xmin<0
                    xmin= xmin+360; 
                 end

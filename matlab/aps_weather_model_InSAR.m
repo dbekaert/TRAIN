@@ -40,6 +40,7 @@ function [] = aps_weather_model_InSAR(model_type)
 % 04/2016   DB      Forgot to remove call to old script
 % 05/2016   DB      Include merra2
 % 10/2016   DB 	    Include a fix inconsistent ifg matrix for stamps users who dropped ifgs
+% 10/2016   DB      Change to aps_save command with append functionality.
 
 % Filename suffix of the output files
 wetoutfile = '_ZWD.xyz';
@@ -265,6 +266,7 @@ eval(['ph_tropo_' model_type '= zeros([size(lonlat,1) n_ifg]);']);          % ph
 eval(['ph_tropo_' model_type '_hydro= zeros([size(lonlat,1) n_ifg]);']);    % ph_tropo_era_hydro = zeros([size(lonlat,1) n_ifg]);
 eval(['ph_tropo_' model_type '_wet= zeros([size(lonlat,1) n_ifg]);']);      % ph_tropo_era_wet = zeros([size(lonlat,1) n_ifg]);
 
+
 n_ifg_kept = size(ifgs_ix,1);
 for k=1:n_ifg_kept
     % add extra flag that requires both master and slave SAR delay to be
@@ -296,19 +298,19 @@ end
 
 
 if sb_flag==1
-    if exist(apssbname,'file')==2
-        eval(['save(''' apssbname ''',''-append'',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
-        % save(apssbname,'-append','ph_tropo_era','ph_tropo_era_wet','ph_tropo_era_hydro')
-    else
-        eval(['save(''' apssbname ''',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
-        % save(apssbname,'ph_tropo_era','ph_tropo_era_wet','ph_tropo_era_hydro')         
-    end
+    eval(['aps_save(''' apssbname ''',ph_tropo_' model_type ',ph_tropo_' model_type '_wet,ph_tropo_' model_type '_hydro);'])
+%    if exist(apssbname,'file')==2
+%        eval(['save(''' apssbname ''',''-append'',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
+%    else
+%        eval(['save(''' apssbname ''',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
+%    end
 else
-    if exist(apsname,'file')==2
-        eval(['save(''' apsname ''',''-append'',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
-        % save(apsname,'-append','ph_tropo_era','ph_tropo_era_wet','ph_tropo_era_hydro')
-    else
-        eval(['save(''' apsname ''',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
-        % save(apsname,'ph_tropo_era','ph_tropo_era_wet','ph_tropo_era_hydro')       
-    end
+    eval(['aps_save(''' apsname ''',ph_tropo_' model_type ',ph_tropo_' model_type '_wet,ph_tropo_' model_type '_hydro);'])
+
+%     if exist(apsname,'file')==2
+%         eval(['save(''' apsname ''',''-append'',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
+%         % save(apsname,'-append','ph_tropo_era','ph_tropo_era_wet','ph_tropo_era_hydro')
+%     else
+%         eval(['save(''' apsname ''',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
+%     end
 end
