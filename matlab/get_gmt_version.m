@@ -25,6 +25,9 @@ function [gmt5_above, gmt_version]=get_gmt_version()
 % 02/2016   DB      Fix in case the dump of GMT --version does not work
 % 03/2016   DB      Fix in case gmt is defined as GMT executable
 % 03/2016   DB      Be more clear on the GMT and gmt definition
+% 07/2016   DB      Try to catch the case when the GMT manual was not installed correctly
+% 08/2016   DB      Try cathing in case the library path was not set properly
+
 
 % checking if GMT can be called
 % this is a bugfix for the MAC OS systems
@@ -42,7 +45,6 @@ while gmt_does_not_work~=0
    % exporting the library path manual
    fprintf('Define the Library path manual in matlab: '''' \n')
    setenv('DYLD_LIBRARY_PATH', '');
-
 
    command_str = ['gmt --version > gmt_version'];
    [gmt_does_not_work, b] = system(command_str);
@@ -79,6 +81,7 @@ if isempty(gmt_version)
    end
 else
     gmt_version =gmt_version{:};
+    fprintf(['You are using GMT version: ' gmt_version '\n']);
 end
 clear b
 delete('gmt_version');
@@ -90,6 +93,16 @@ if gmt_does_not_work~=0
     command_str2 = ['psxy --help> gmt_function_test'];
     [gmt_does_not_work, b] = system(command_str2);
 end
+%if gmt_does_not_work~=0
+command_str2 = ['psxy'];
+[gmt_does_not_work, b] = system(command_str2);
+if ~isempty(b)
+   ix = findstr('usage: psxy',b);
+   if ~isempty(ix)
+       gmt_does_not_work = 0;
+   end
+end
+%end
 % GMT does not work well
 while gmt_does_not_work~=0
    fprintf('GMT not an executable, will try to fix \n')
@@ -116,8 +129,6 @@ else
     gmt5_above='n';
 end
 
-% generate output for user
-fprintf(['You are using GMT version: ' gmt_version '\n']);
 % if strcmpi(gmt5_above,'y')
 %     fprintf('Will need to use the GMT compatible codes for GMT5 and above... \n')
 % else
