@@ -35,13 +35,27 @@ function [filesTOdownlaod] = aps_merra_files(orderflag,merra_model)
 % http://disc.sci.gsfc.nasa.gov/uui/datasets/GES_DISC_M2I6NPANA_V5.12.4/summary?keywords=%22MERRA%22
 % MERRA2 is continuation of MERRA and has data from 1979 till current
 % downlaod data page is at: ftp://goldsmr5.sci.gsfc.nasa.gov/data/s4pa/MERRA2/M2I6NPANA.5.12.4/
-
+% modifications:
+% SSS    10/2016 MERRA credentials now passed
+% SSS    10/2016 Url change for MERRA-1 data processed for Summer 2010
 
 if nargin<1 || isempty(orderflag)
     orderflag=1;
 end
 
 %% Loading dataset specific paramters
+%%%SSS 10/16 additions to read username /n password for MERRA credentials, which are to be provided in '~/.merrapass'
+fileID = fopen('~/.merrapass','r');
+if fileID==-1
+   error('~/.merrapass containing credentials does not exist or is not readable')
+end
+permis= textscan(fileID,'%s');
+fclose(fileID);
+usern=permis{1}{1};
+pass=permis{1}{2};
+clear fileID permis;
+%%%SSS 10/16 end additions
+
 ifgday_matfile = getparm_aps('ifgday_matfile',1);
 ifgs_dates = load(ifgday_matfile);
 UTC_sat =  getparm_aps('UTC_sat',1);
@@ -153,6 +167,7 @@ if strcmpi(merra_model,'merra')
     datasetnumber = 200.*ones([n_files 1]);
     datasetnumber(str2num(date_vector(:,1:4))<1993)=100;
     datasetnumber(str2num(date_vector(:,1:4))>=2001)=300;
+    datasetnumber(str2num(date_vector(:,1:8))>=20100601 & str2num(date_vector(:,1:8))<=20100831)=301; %%%SSS 10/16: Url change for MERRA-1 data processed for Summer 2010.
     datasetnumber_str = num2str(datasetnumber);
     % the URL of the file
     filesTOdownlaod = [repmat('http://goldsmr3.sci.gsfc.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2Fs4pa%2FMERRA%2FMAI6NPANA.5.2.0%2F',n_files,1) date_vector(:,1:4) repmat('%2F',n_files,1) date_vector(:,5:6) repmat('%2FMERRA',n_files,1) datasetnumber_str repmat('.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.hdf&FORMAT=SERGLw&BBOX=-90%2C-180%2C90%2C180&TIME=1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00%2F1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.SUB.hdf&FLAGS=&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_LATS4D&LAYERS=&VERSION=1.02&VARIABLES=ps%2Ch%2Ct%2Cqv',n_files,1)];
@@ -177,7 +192,7 @@ elseif strcmpi(merra_model,'merra2')
     
     % gnerating the string
     datasetnumber = 200.*ones([n_files 1]);
-    datasetnumber(str2num(date_vector(:,1:4))<1993)=100; %%%SSS 5/2016: Shouldn't it be <1993 instead of <1992???
+    datasetnumber(str2num(date_vector(:,1:4))<1992)=100; %%%SSS 7/2016: Should be <1992 instead of 1993.
     datasetnumber(str2num(date_vector(:,1:4))>=2001)=300;
     datasetnumber(str2num(date_vector(:,1:4))>=2011)=400;
 
@@ -207,7 +222,9 @@ if orderflag==1
             fprintf(['Downloading: ' downloadfile file_ext '\n'])
             try
                 pause(5); %SSS 6/2016: must add pause or else you will be booted from server and certain files will be missing if requesting a large number of downloads.
-                urlwrite(filesTOdownlaod(k,:),downloadFILEname(k,:));
+                pass_to_cmd=['wget --user ',usern,' --password ', pass,' ''',filesTOdownlaod(k,:),'''',' -O ',downloadFILEname(k,:)];
+                [a,b] = system(pass_to_cmd);
+                clear a b pass_to_cmd;
             catch ME
                 fprintf('File not found \n')
                 fprintf('Matlab failure message: %s\n', ME.message);
@@ -233,7 +250,9 @@ if orderflag==1
                 fprintf(['Downloading: ' downloadfile file_ext '\n'])
                 try
                     pause(5); %SSS 6/2016: must add pause or else you will be booted from server and certain files will be missing if requesting a large number of downloads.
-                    urlwrite(filesTOdownlaod(k,:),downloadFILEname(k,:));
+                    pass_to_cmd=['wget --user ',usern,' --password ', pass,' ''',filesTOdownlaod(k,:),'''',' -O ',downloadFILEname(k,:)];
+                    [a,b] = system(pass_to_cmd);
+                    clear a b pass_to_cmd;
                 catch ME
                     fprintf('File not found \n')
                     fprintf('Matlab failure message: %s\n', ME.message);
