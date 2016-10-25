@@ -72,7 +72,7 @@ if exist(save_name,'file')==2
        test_flag = strcmp(x(2:20), 'MATLAB 7.3 MAT-file');
        % save the data
        if test_flag==1 
-           eval(['save(''' save_name '''' var_str ',''-v7.3'',''-append'');'])
+           eval(['save(''' save_name '''' var_str ',''-v7.3'');'])
        else
           fprintf('matlab cannot save this file because it was originally not saved with -v7.3 option.\nWill change the formating...\n') 
           % solution load the file and write it as -v3.7
