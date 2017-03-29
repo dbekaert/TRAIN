@@ -63,6 +63,7 @@ function []=aps_linear(save_path)
 % DB:   06/2015     Suppress the output, as its saved anyway.
 % DB:   01/2016     Include non-Stamps support
 % DB:   02/2016     Remove inlfuence of NaN's
+% DB:   12/2016     Revert to aps_save to allow saving of large variables
 
 
 test_fig = 0;   % debug flag which plots the scatter cloud and the 
@@ -244,25 +245,13 @@ end
 if strcmp(stamps_processed,'y')
     % This is StaMPS
     if strcmp(getparm('small_baseline_flag'),'y')
-        if exist(apssbname,'file')==2
-            save(apssbname,'-append','ph_tropo_linear')
-        else
-            save(apssbname,'ph_tropo_linear')
-        end
+        aps_save(apssbname,ph_tropo_linear)
     else
-        if exist(apsname,'file')==2
-            save(apsname,'-append','ph_tropo_linear')
-        else
-            save(apsname,'ph_tropo_linear')
-        end
+        aps_save(apsname,ph_tropo_linear)
     end
 else
     % This is not StaMPS
-    if exist(apsname,'file')==2
-        save(apsname,'-append','ph_tropo_linear')
-    else
-        save(apsname,'ph_tropo_linear')
-    end  
+    aps_save(apsname,ph_tropo_linear)
 end
 
 
