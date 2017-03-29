@@ -30,8 +30,7 @@ function [] = aps_save(save_name,varargin)
 % By Bekaert David - Jan 2016
 % modifications:
 % DB    02/2016     Check if the save folder exist, if not make it.
-% DB    10/2016     Include the option to append to a file in case it
-% already exists.
+% DB    10/2016     Include the option to append to a file in case it already exists.
 % DB    10/2016     Do not attempt to make no-name directory.
 
 % maximum number of bytes before using the -v3.7 option to save
@@ -72,7 +71,7 @@ if exist(save_name,'file')==2
        test_flag = strcmp(x(2:20), 'MATLAB 7.3 MAT-file');
        % save the data
        if test_flag==1 
-           eval(['save(''' save_name '''' var_str ',''-v7.3'');'])
+           eval(['save(''' save_name '''' var_str ',''-v7.3'',''-append'');'])
        else
           fprintf('matlab cannot save this file because it was originally not saved with -v7.3 option.\nWill change the formating...\n') 
           % solution load the file and write it as -v3.7
