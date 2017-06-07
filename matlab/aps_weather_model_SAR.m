@@ -73,7 +73,7 @@ fig_test = 1;           % when 1 show the dem as debug figure
 save_3D_delays = 0;     % When 1 saves the tropopsheric delays for each x,y and with height
 
 if nargin<1
-    error('Give at least the model_type: era or merra')
+    error('Give at least the model_type: era, era5, merra, or merra2')
 end
 % change to lower caps for saving and filename generation consistency
 model_type = lower(model_type);
@@ -190,6 +190,9 @@ for d = 1:n_dates
             %% loading the weather model data
             if  strcmpi(model_type,'era')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
+	    elseif  strcmpi(model_type,'era5')
+                 [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
+
             elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_merra(file,model_type,coeff) ;
             end
