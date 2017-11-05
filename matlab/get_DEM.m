@@ -31,11 +31,13 @@ function [dem,xmin,xmax,ymin,ymax,smpres,nncols,nnrows] = get_DEM()
 %               Attemt to autofix between int16 and short format
 % 04/2016   DB  Check if the DEM exist
 % 04/2016   DB  Add option to give DEM with .xml file too
+% 11/2017   DB  finnish xml implementation, allow for gmt string to be
+%               given to call gmt outside matlab
 
 
 
 % retreiving which version of GMT this is
-[gmt5_above, gmt_version] = get_gmt_version;
+[gmt5_above, gmt_version,GMT_string] = get_gmt_version;
 
 
 
@@ -115,38 +117,33 @@ else
     % gettign the DEM specifics
     if strcmpi(dem_support,'.xml')
         % get dem details from xml file
-
-        keyboard
+        [ncols] = get_parm_xml([demfile, '.xml'],'width');
+        [nrows] = get_parm_xml([demfile, '.xml'],'length');
+        [scheme] = get_parm_xml([demfile, '.xml'],'scheme');
+        [number_bands] = get_parm_xml([demfile, '.xml'],'number_bands');
+        [format] = get_parm_xml([demfile, '.xml'],'data_type');
+        [delta_list,fields_delta] = get_parm_xml([demfile, '.xml'],'delta');
+        [startingvalue_list,fields_startvalue] = get_parm_xml([demfile, '.xml'],'startingvalue');
+        [endingvalue_list,fields_endvalue] = get_parm_xml([demfile, '.xml'],'endingvalue');
         
-        infoLabel = 'Plot Tools';  infoCbk = '';  itemFound = false;
-      xDoc = xmlread(fullfile(matlabroot,'toolbox/matlab/general/info.xml'));
- 
-      % Find a deep list of all <listitem> elements.
-      allListItems = xDoc.getElementsByTagName('listitem');
- 
-      %Note that the item list index is zero-based.
-      for i=0:allListItems.getLength-1
-          thisListItem = allListItems.item(i);
-          childNode = thisListItem.getFirstChild;
- 
-          while ~isempty(childNode)
-              %Filter out text, comments, and processing instructions.
-              if childNode.getNodeType == childNode.ELEMENT_NODE
-                  %Assume that each element has a single org.w3c.dom.Text child
-                  childText = char(childNode.getFirstChild.getData);
-                  switch char(childNode.getTagName)
-                      case 'label' ; itemFound = strcmp(childText,infoLabel);
-                      case 'callback' ; infoCbk = childText;
-                  end
-              end
-              childNode = childNode.getNextSibling;
-          end
-          if itemFound break; else infoCbk = ''; end
-      end
-      disp(sprintf('Item "%s" has a callback of "%s".',infoLabel,infoCbk))
-      
         
-      error('Work in progress')
+        xfirst = startingvalue_list(1);
+        yfirst = startingvalue_list(2);
+        xstep = delta_list(1);
+        ystep = delta_list(2);
+        
+        
+        % santiy check on the ending valuu
+        xlast = xfirst + ncols*xstep;
+        ylast = yfirst + nrows*ystep;
+        if sum(abs(endingvalue_list-[xlast; ylast]))~0
+            fprintf(['Did not expect the x-ylast value to be different from endingvalue_list, please check\n'])
+            keyboard
+        end
+        
+        if number_bands>1
+            error('Only 1-band files are supported for DEM')
+        end
         
         
     elseif strcmpi(dem_support,'.rsc')
@@ -176,7 +173,17 @@ else
         xstep = DEM_info(5);
         ystep = DEM_info(6);
         clear DEM_info
+        
+        
+        % loading the DEM info data (strings)
+        fid = fopen([path_dem ,filesep 'temp2']) ;
+        DEM_info2 = textscan(fid,'%s');
+        fclose(fid);
+        aps_systemcall(['rm ' path_dem ,filesep 'temp2']);
+        format =  DEM_info2{1};
+        clear DEM_info2
     end
+    
 
     %% Getting the DEM precision
     %automatically checking dem format, by hua wang, 26 Feb 2015
@@ -203,22 +210,21 @@ else
     end
     fclose(fid);
 
-    % loading the DEM info data (strings)
-    fid = fopen([path_dem ,filesep 'temp2']) ;
-    DEM_info2 = textscan(fid,'%s');
-    fclose(fid);
-    aps_systemcall(['rm ' path_dem ,filesep 'temp2']);
-    format =  DEM_info2{1};
-    clear DEM_info2
+    
 
     format_dem_str_given = [];
     if ~isempty(format)
         if  strcmpi(format,'r4') || strcmpi(format,'real4')
            format_dem_str_given='f'; 
-        elseif strcmpi(format,'h')
-             format_dem_str_given='h';   
+        elseif strcmpi(format,'h') || strcmpi(format,'short')
+            format_dem_str_given='h';   
+            % if the given fortmat is short then update the detection to be short
+            if strcmpi(format_dem_str,'i')
+                format_dem_str = 'h';
+            end
         end
     end
+
     
     % checking if the specified precision is different, then that of the automated estimation
     if ~isempty(format_dem_str_given)
@@ -262,9 +268,9 @@ else
     end
 
     if strcmp(pixelreg,'gridline')==0
-      xyz2grd_cmd = ['xyz2grd -R',num2str(xfirst),'/',num2str(xlast),'/',num2str(ylast),'/',num2str(yfirst),' -I',num2str(ncols),'+/',num2str(nrows),'+ ',demfile,' -Gtmp.grd -N',num2str(demnull),' -F -ZTL' format_dem_str];
+      xyz2grd_cmd = [GMT_string 'xyz2grd -R',num2str(xfirst),'/',num2str(xlast),'/',num2str(ylast),'/',num2str(yfirst),' -I',num2str(ncols),'+/',num2str(nrows),'+ ',demfile,' -Gtmp.grd -N',num2str(demnull),' -F -ZTL' format_dem_str];
     else
-      xyz2grd_cmd = ['xyz2grd -R',num2str(xfirst),'/',num2str(xlast),'/',num2str(ylast),'/',num2str(yfirst),' -I',num2str(ncols),'+/',num2str(nrows),'+ ',demfile,' -Gtmp.grd -N',num2str(demnull),' -ZTL' format_dem_str];
+      xyz2grd_cmd = [GMT_string 'xyz2grd -R',num2str(xfirst),'/',num2str(xlast),'/',num2str(ylast),'/',num2str(yfirst),' -I',num2str(ncols),'+/',num2str(nrows),'+ ',demfile,' -Gtmp.grd -N',num2str(demnull),' -ZTL' format_dem_str];
     end
     
     % down-sample dem to the grid as secified by the user with the given resolution    
@@ -276,9 +282,9 @@ else
              fprintf('int16 does not seem to work. Let try short instead \n')
              format_dem_str='h';
              if strcmp(pixelreg,'gridline')==0
-                xyz2grd_cmd = ['xyz2grd -R',num2str(xfirst),'/',num2str(xlast),'/',num2str(ylast),'/',num2str(yfirst),' -I',num2str(ncols),'+/',num2str(nrows),'+ ',demfile,' -Gtmp.grd -N',num2str(demnull),' -F -ZTL' format_dem_str];
+                xyz2grd_cmd = [GMT_string 'xyz2grd -R',num2str(xfirst),'/',num2str(xlast),'/',num2str(ylast),'/',num2str(yfirst),' -I',num2str(ncols),'+/',num2str(nrows),'+ ',demfile,' -Gtmp.grd -N',num2str(demnull),' -F -ZTL' format_dem_str];
              else
-                xyz2grd_cmd = ['xyz2grd -R',num2str(xfirst),'/',num2str(xlast),'/',num2str(ylast),'/',num2str(yfirst),' -I',num2str(ncols),'+/',num2str(nrows),'+ ',demfile,' -Gtmp.grd -N',num2str(demnull),' -ZTL' format_dem_str];
+                xyz2grd_cmd = [GMT_string 'xyz2grd -R',num2str(xfirst),'/',num2str(xlast),'/',num2str(ylast),'/',num2str(yfirst),' -I',num2str(ncols),'+/',num2str(nrows),'+ ',demfile,' -Gtmp.grd -N',num2str(demnull),' -ZTL' format_dem_str];
              end
              aps_systemcall(xyz2grd_cmd);
         end
@@ -293,7 +299,7 @@ end
 % make it random such mutiple correction methods can be ran simultaneous
 temp_num = round(rand(1)*10000);
 
-y_first_new_cmd = ['echo `grdinfo tmp.grd | grep y_min`>', 'temp' num2str(temp_num)];
+y_first_new_cmd = ['echo `' GMT_string 'grdinfo tmp.grd | grep y_min`>', 'temp' num2str(temp_num)];
 aps_systemcall(y_first_new_cmd);
 temp = fileread(['temp' num2str(temp_num)]);
 ix_y_min = findstr('y_min',temp);
@@ -302,7 +308,7 @@ ix_y_end = findstr('y_inc',temp);
 y_first_new = str2num(temp(ix_y_min+7:ix_y_max-2));
 y_last_new = str2num(temp(ix_y_max+7:ix_y_end-2));
 clear y_first_new_cmd temp ix_y_end ix_y_max ix_y_min
-x_first_new_cmd = ['echo `grdinfo tmp.grd | grep x_min`>', 'temp' num2str(temp_num)];
+x_first_new_cmd = ['echo `' GMT_string 'grdinfo tmp.grd | grep x_min`>', 'temp' num2str(temp_num)];
 aps_systemcall(x_first_new_cmd);
 temp = fileread(['temp' num2str(temp_num)]);
 ix_x_min = findstr('x_min',temp);
@@ -341,9 +347,9 @@ end
 if exist('tmp_smp.grd','file')==2
     delete('tmp_smp.grd')
 end
-grdsmp_cmd = ['grdsample -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' -I',num2str(smpres),' tmp.grd -Gtmp_smp.grd'];
+grdsmp_cmd = [GMT_string 'grdsample -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' -I',num2str(smpres),' tmp.grd -Gtmp_smp.grd'];
 aps_systemcall(grdsmp_cmd);
-grd2xyz_cmd = ['grd2xyz -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' tmp_smp.grd -bo > ',smpdem];
+grd2xyz_cmd = [GMT_string 'grd2xyz -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' tmp_smp.grd -bo > ',smpdem];
 aps_systemcall(grd2xyz_cmd);
 clear a b
 
@@ -359,9 +365,9 @@ clear data data_vector
 
 
 %% load the resampled DEM
-nncols_cmd = ['echo `grdinfo tmp_smp.grd | grep nx | awk ''{print $NF}''`>', path_dem ,filesep ,'temp3'];
+nncols_cmd = ['echo `' GMT_string 'grdinfo tmp_smp.grd | grep nx | awk ''{print $NF}''`>', path_dem ,filesep ,'temp3'];
 aps_systemcall(nncols_cmd);
-nnrows_cmd = ['echo `grdinfo tmp_smp.grd | grep ny | awk ''{print $NF}''`>>', path_dem ,filesep ,'temp3'];
+nnrows_cmd = ['echo `' GMT_string 'grdinfo tmp_smp.grd | grep ny | awk ''{print $NF}''`>>', path_dem ,filesep ,'temp3'];
 aps_systemcall(nnrows_cmd);
 DEM_info = load([path_dem ,filesep 'temp3']);
 aps_systemcall(['rm ' path_dem ,filesep 'temp3']);
