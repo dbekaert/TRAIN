@@ -47,7 +47,7 @@ end
 %%%SSS 10/16 additions to read username /n password for MERRA credentials, which are to be provided in '~/.merrapass'
 fileID = fopen('~/.merrapass','r');
 if fileID==-1
-   error('~/.merrapass containing credentials does not exist or is not readable')
+   error('~/.merrapass containing credentials does not exist or is not readable, also add NASA GESDISC DATA ARCHIVE in your applications to access the archive')
 end
 permis= textscan(fileID,'%s');
 fclose(fileID);
