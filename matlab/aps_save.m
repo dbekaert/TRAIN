@@ -32,6 +32,8 @@ function [] = aps_save(save_name,varargin)
 % DB    02/2016     Check if the save folder exist, if not make it.
 % DB    10/2016     Include the option to append to a file in case it already exists.
 % DB    10/2016     Do not attempt to make no-name directory.
+% DB    10/2017     Add .mat to file names in case user omited it.
+
 
 % maximum number of bytes before using the -v3.7 option to save
 n_bytes_max = 2^31;       % is about 2 GB
@@ -53,11 +55,17 @@ for k=1:length(varargin)
 end
 
 % check if the save folder exists, if not make it.
-[path,temp,temp] = fileparts(save_name);
+[path,temp,ext] = fileparts(save_name);
 if ~isempty(path)
     if exist(path,'dir')~=7
         mkdir(path);
     end
+end
+
+% if the dsave file does not end with .mat then append it, otherwize matlab
+% might not find it...
+if ~strcmpi(ext,'.mat')
+    save_name = [save_name '.mat'];
 end
 
 % choose the saving option
