@@ -30,7 +30,7 @@ function [xyz_input,xyz_output] = load_weather_model_SAR(filename,xy_out_grid,ov
 %                       correct compiling of the mex code.
 % DB    10/04/2016      Generalize for weather models
 % DB    29/04/2016      Include a fix in case the coordiantes are way off during geocooding.
-
+% DB    04/11/2017      Allos GMT and gmt to be an executable
 
 plot_flag = 0;
 
@@ -71,11 +71,14 @@ file_type_grd = 'n';
 [file_path,temp,file_ext] = fileparts(filename);
 % check if this is a grd file already
 if strcmpi(file_ext,'.grd')
+    
+    % gmt information
+    [gmt5_above, gmt_version, GMT_string]=get_gmt_version();
+
     fprintf(['Specified aps correction is a .grd file\n'])
     file_type_grd = 'y';
     xyz_input = inf;
     
-    [gmt5_above, gmt_version]=get_gmt_version();
     error('This is currently under development')    
     
 else
@@ -88,6 +91,7 @@ else
     xyz_input = reshape(data_vector,3,[])';
     clear data_vector
 end
+
 
 
 
@@ -161,9 +165,9 @@ if interpolate_flag==1
         save_name = [SAR_path filesep SAR_filename '_SARll'];
         % calling GMT for the interpolation to the ifg lonlat grid
         if strcmpi(gmt5_above,'y')
-           commandstr = ['grdtrack ' lonlat_file ' -G' filename '  -fg -N  -Z > ' save_name]
+           commandstr = [GMT_string 'grdtrack ' lonlat_file ' -G' filename '  -fg -N  -Z > ' save_name];
         else
-           commandstr = ['grdtrack ' lonlat_file ' -G' filename '  -fg -Qn  -Z > ' save_name]
+           commandstr = [GMT_string 'grdtrack ' lonlat_file ' -G' filename '  -fg -Qn  -Z > ' save_name];
             
         end
         aps_systemcall(commandstr);
