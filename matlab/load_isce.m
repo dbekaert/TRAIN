@@ -6,7 +6,8 @@ function [data_out] = load_isce(datafile)
 % 08/10/2016     DB  Change from vargout to 3D cube.
 % 14/01/2017     DB  Include ISCE ifg support.
 % 01/02/2017     DB  Include BIP for bands
-
+% 23/04/2017     DB  Include Byte support to read mask files
+% 04/11/2017     DB  Adding short support for DEM files
 
 % the xml file
 datafile_xml = [datafile '.xml'];
@@ -23,8 +24,6 @@ end
 [type] = get_parm_xml(datafile_xml,'data_type');
 
 
-keyboard
-
 %% Different data cases
 % check if this is an interferogram
 if strcmpi(type,'CFLOAT')
@@ -33,6 +32,10 @@ elseif strcmpi(type,'FLOAT')
     type_str = 'float32';
 elseif strcmpi(type,'double')
     type_str = 'double';
+elseif strcmpi(type,'byte')
+    type_str = 'uint8';
+elseif strcmpi(type,'short')
+    type_str = 'short';
 else
     error([type ' to be included...'])
 end
@@ -48,7 +51,6 @@ if strcmpi(type,'CFLOAT')
             error('To be coded further...')
         end
     elseif strcmpi(scheme,'BIP')
-        keyboard
         if number_bands==1
             fid = fopen(datafile,'r');
             data_out = fread(fid,[2*width inf],type_str);
