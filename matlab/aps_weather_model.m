@@ -37,8 +37,8 @@ curdir = pwd;
 if nargin <3
     error('Need to specify at least model_type, start_step, end_step');
 end
-if ~strcmpi(model_type,'era5') & ~strcmpi(model_type,'era') & ~strcmpi(model_type,'merra') & ~strcmpi(model_type,'merra2')
-    error(['model_type needs to be era or merra'])
+if ~strcmpi(model_type,'era5') & ~strcmpi(model_type,'era') & ~strcmpi(model_type,'gacos') & ~strcmpi(model_type,'merra') & ~strcmpi(model_type,'merra2')
+    error(['model_type needs to be era, merra, merra2, gacos, era5'])
 end
 % define save path if not given
 if nargin<4
@@ -66,6 +66,10 @@ if start_step==0
         % Dummy run on the needed ERA5 files
         fprintf('Step 0: Dummy run on the needed ERA5 data files \n')
         aps_era5_files(0);
+     elseif strcmpi(model_type,'gacos')
+        % Dummy run on the needed gacos files
+        fprintf('Step 0: Dummy run on the needed gacos data files \n')
+        aps_gacos_files(0);
      elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
         % required MERRA files
         aps_merra_files(0,model_type);
@@ -81,6 +85,8 @@ if start_step<=1 && end_step >=1
         else
             fprintf('You need to download BADC data from command line')
         end
+    elseif strcmpi(model_type,'gacos')
+        fprintf('You need to download GACOS data from the website, use GACOS_download_info.txt for relevant information\n')
     elseif strcmpi(model_type,'era5')
         aps_era5_files(1);
     elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
@@ -91,10 +97,19 @@ if start_step<=2 && end_step >=2
     % SAR zenith delays 
     fprintf(['Step 2: Compute the ' upper(model_type) ' tropospheric (zenith) delay for individual dates\n'])
     % running the SAR delay computation using the weather model observations 
-    aps_weather_model_SAR(model_type);
+    if strcmpi(model_type,'gacos')
+        fprintf('GACOS delays as downloaded are already Zenith delays, do not need to do anything here\n')
+    else
+        aps_weather_model_SAR(model_type);
+    end
 end
 
 if start_step<=3 && end_step >=3
+    % if GACOS check if the files are in date structure
+    if strcmpi(model_type,'gacos')
+        aps_gacos_files(-1);
+    end
+    
     % InSAR slant delays
     fprintf(['Step 3: Computes '  upper(model_type) ' tropospheric (slant) delay for inteferograms\n'])
     aps_weather_model_InSAR(model_type);

@@ -353,6 +353,13 @@ if ~isfield(parms,'era_data_type')
     parms.era_data_type ='ECMWF';
 end
 
+%% regarding gacos
+if ~isfield(parms,'gacos_datapath')
+    % gacos data path
+    parms.gacos_datapath = [];
+end
+
+
 %% regarding MERRA
 if ~isfield(parms,'merra_datapath')
     % MERRA data path
