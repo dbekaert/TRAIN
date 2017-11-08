@@ -37,6 +37,7 @@ function [] = aps_era_files(orderflag_ECMWF_website)
 % DB 06/2014    Fixed typo in the East extend of the ERA data downlaod
 % DB 07/2014    Redefine meris_lat(lon)_range to region_lat(lon)_range
 % DB 06/2015    Fix typo
+% DB 11/2017    Stagger downloads by 5 sec as new api has a maximum downlaod.
 
 stdargin = nargin ; 
 if stdargin<1
@@ -172,6 +173,7 @@ if orderflag_ECMWF_website==1
             python_str = ['python ',filelist(l,5:16),'.py > ',filelist(l,5:16),'down.log &'];
             [a,b] = system(python_str); % start python script
             clear a b
+            pause(5);
             cd ..
         else
             if overwrite_flag==-1
@@ -195,6 +197,7 @@ if orderflag_ECMWF_website==1
                 python_str = ['python ',filelist(l,5:16),'.py > ',filelist(l,5:16),'down.log &'];
                 [a,b] = system(python_str); % start python script
                 clear a b
+                pause(5);
                 cd ..
             elseif overwrite_flag==0
                 fprintf('File %s has already been downloaded \n',filelist(l,:))
