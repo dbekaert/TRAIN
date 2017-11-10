@@ -38,13 +38,15 @@ function [filesTOdownlaod] = aps_merra_files(orderflag,merra_model)
 % modifications:
 % SSS    10/2016 MERRA credentials now passed
 % SSS    10/2016 Url change for MERRA-1 data processed for Summer 2010
+% DB     11/2017 Give the end date for the MERRA model
+% DB     11/2017 Attempt to fix URL for merra download
 
 if nargin<1 || isempty(orderflag)
     orderflag=1;
 end
 
 %% Loading dataset specific paramters
-%%%SSS 10/16 additions to read username /n password for MERRA credentials, which are to be provided in '~/.merrapass'
+% read username /n password for MERRA credentials, which are to be provided in '~/.merrapass'
 fileID = fopen('~/.merrapass','r');
 if fileID==-1
    error('~/.merrapass containing credentials does not exist or is not readable, also add NASA GESDISC DATA ARCHIVE in your applications to access the archive')
@@ -54,7 +56,6 @@ fclose(fileID);
 usern=permis{1}{1};
 pass=permis{1}{2};
 clear fileID permis;
-%%%SSS 10/16 end additions
 
 ifgday_matfile = getparm_aps('ifgday_matfile',1);
 ifgs_dates = load(ifgday_matfile);
@@ -72,75 +73,13 @@ if strcmp(stamps_processed,'y')
    dates = ifgs_dates.day;
    load psver
    fprintf('Stamps processed structure \n')
-%    dates  = datestr(dates_test,'yyyymmdd') %
-%    str='';
-%    while ~strcmpi(str,'y') && ~strcmpi(str,'n') 
-%       fprintf(['Do you want to overwrite existing files? \n'])  
-%       str = input('[y: for yes, n: no] \n','s');
-%    end
-%    %%%Check if scenes have already been downloaded, and then you decide if you wish to overwrite.
-%    remove_dates=[]
-%    for i=1:length(dates)
-%       elm=dates(i,1);
-%       check_merra_path=[merra_datapath filesep int2str(elm)];
-%       if exist(check_merra_path,'dir') == 7
-%          if strcmpi(str,'y')
-%             remove_dates=[];
-%          else
-%             remove_dates=[elm;remove_dates];
-%          end
-%       end
-%    end
-%    if isempty(remove_dates) == 1
-%       dates;
-%    else
-%       dates=setdiff(dates,remove_dates,'rows');
-%    end
-%    if isempty(dates) == 1
-%       fprintf('No new files to be downloaded \n')
-%       return
-%    else
-%       dates = datenum(num2str(dates),'yyyymmdd');
-%       dates = datenum(num2str(dates),'yyyymmdd');
-%       load psver
-%       fprintf('Stamps processed structure \n')
-%    end
 else
     psver = 2;
     ifgs_dates = ifgs_dates.ifgday;
     dates = reshape(ifgs_dates,[],1);
     dates = unique(dates);
     dates = datenum(num2str(dates),'yyyymmdd');
-%     str='';
-%     while ~strcmpi(str,'y') && ~strcmpi(str,'n') 
-%         fprintf(['Do you want to overwrite existing files? \n'])  
-%         str = input('[y: for yes, n: no] \n','s');
-%     end
-%     %%%Check if scenes have already been downloaded, and then you decide if you wish to overwrite.
-%     remove_dates=[];
-%     for i=1:length(dates)
-%         elm=dates(i,1);
-%         check_merra_path=[merra_datapath filesep int2str(elm)];
-%         if exist(check_merra_path,'dir') == 7
-%             if strcmpi(str,'y')
-%                 remove_dates=[];
-%             end
-%             if strcmpi(str,'n')
-%                 remove_dates=[elm;remove_dates];
-%             end
-%         end
-%     end
-%     if isempty(remove_dates) == 1
-%         dates;
-%     else
-%         dates=setdiff(dates,remove_dates,'rows');
-%     end
-%     if isempty(dates) == 1
-%         fprintf('No new files to be downloaded \n')
-%         return
-%     else
-%         dates = datenum(num2str(dates),'yyyymmdd');
-%     end
+
 end
 
 
@@ -164,16 +103,45 @@ wget_string = repmat('wget ',n_files,1);
 
 % now generate the full paths where the data can be downloaded
 if strcmpi(merra_model,'merra')
+    crop_range_in = 2; % increasing extent of weather data region by this value (degree)
+    % weather model region
+    region_lat_range = getparm_aps('region_lat_range');
+    region_lon_range = getparm_aps('region_lon_range');
+    if isempty(region_lat_range) == 1
+        error('Specify the region for the weather model data')
+    end
+    fprintf('increasing crop area by %s deg in each direction \n',num2str(crop_range_in))
+    S = num2str(min(round(region_lat_range)) - crop_range_in);
+    N = num2str(max(round(region_lat_range)) + crop_range_in);
+    W = num2str(min(round(region_lon_range)) - crop_range_in);
+    E = num2str(max(round(region_lon_range)) + crop_range_in);       % DB fixed typo min to max
+                                                    
     datasetnumber = 200.*ones([n_files 1]);
     datasetnumber(str2num(date_vector(:,1:4))<1993)=100;
     datasetnumber(str2num(date_vector(:,1:4))>=2001)=300;
     datasetnumber(str2num(date_vector(:,1:8))>=20100601 & str2num(date_vector(:,1:8))<=20100831)=301; %%%SSS 10/16: Url change for MERRA-1 data processed for Summer 2010.
     datasetnumber_str = num2str(datasetnumber);
-    % the URL of the file
-    filesTOdownlaod = [repmat('http://goldsmr3.sci.gsfc.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2Fs4pa%2FMERRA%2FMAI6NPANA.5.2.0%2F',n_files,1) date_vector(:,1:4) repmat('%2F',n_files,1) date_vector(:,5:6) repmat('%2FMERRA',n_files,1) datasetnumber_str repmat('.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.hdf&FORMAT=SERGLw&BBOX=-90%2C-180%2C90%2C180&TIME=1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00%2F1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.SUB.hdf&FLAGS=&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_LATS4D&LAYERS=&VERSION=1.02&VARIABLES=ps%2Ch%2Ct%2Cqv',n_files,1)];
+    
+    % the URL of the file              
+    filesTOdownlaod = [repmat('http://goldsmr3.gesdisc.eosdis.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2FMERRA%2FMAI6NPANA.5.2.0%2F',n_files,1) date_vector(:,1:4) repmat('%2F',n_files,1) date_vector(:,5:6) repmat('%2FMERRA',n_files,1) datasetnumber_str repmat('.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.hdf&FORMAT=aGRmLw&BBOX=',n_files,1) repmat(num2str(S),n_files,1)  repmat('%2C',n_files,1) repmat(num2str(W),n_files,1) repmat('%2C',n_files,1) repmat(num2str(N),n_files,1) repmat('%2C',n_files,1) repmat(num2str(E),n_files,1) repmat('&TIME=1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00%2F1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.SUB.hdf&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_MERRA&VERSION=1.02&LAYERS=&VARIABLES=ps%2Ch%2Ct%2Cqv',n_files,1)];
+    
+    
+% http://goldsmr3.gesdisc.eosdis.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2FMERRA%2FMAI6NPANA.5.2.0%2F2015%2F03%2FMERRA300.prod.assim.inst6_3d_ana_Np.20150310.hdf&FORMAT=aGRmLw&BBOX=34%2C-79%2C40%2C-73&TIME=1979-01-01T18%3A00%3A00%2F1979-01-01T18%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.20150310.SUB.hdf&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_MERRA&VERSION=1.02&LAYERS=&VARIABLES=ps%2Ch%2Ct%2Cqv
+% http://goldsmr3.gesdisc.eosdis.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2FMERRA%2FMAI6NPANA.5.2.0%2F2015%2F03%2FMERRA300.prod.assim.inst6_3d_ana_Np.20150310.hdf&FORMAT=aGRmLw&BBOX=34%2C-79%2C40%2C-73&TIME=1979-01-01T18%3A00%3A00%2F1979-01-01T18%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.20150310.SUB.hdf&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_MERRA&VERSION=1.02&LAYERS=&VARIABLES=ps%2Ch%2Ct%2Cqv
+% http://goldsmr3.gesdisc.eosdis.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2FMERRA%2FMAI6NPANA.5.2.0%2F2015%2F03%2FMERRA300.prod.assim.inst6_3d_ana_Np.20150310.hdf&FORMAT=aGRmLw&BBOX=35.398%2C-78.025%2C38.342%2C-74.927&TIME=1979-01-01T18%3A00%3A00%2F1979-01-01T18%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.20150310.SUB.hdf&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_MERRA&VERSION=1.02&LAYERS=&VARIABLES=ps%2Ch%2Ct%2Cqv
+
+
+
     % the filename of the downloaded file as to be stored
     downloadFILEname = [repmat([merra_datapath filesep],n_files,1) date_vector(:,1:8) repmat(filesep,n_files,1)  repmat('MERRA_',n_files,1) date_vector(:,1:8)  repmat('_',n_files,1) time_vector(:,1:2)  repmat('.hdf',n_files,1)];
        
+    % give warning about end of the model
+    ix_drop = datenum(date_vector,'yyyymmdd')>datenum('20160229','yyyymmdd');
+    if sum(ix_drop)>1
+        fprintf('Note MERRA model only has outputs till 20160229 \n')
+        fprintf([ num2str(sum(ix_drop)) '/' num2str(length(ix_drop)) ' dates do not have MERRA outputs \n'])
+    end
+    downloadFILEname(ix_drop,:)=[];
     
 elseif strcmpi(merra_model,'merra2')   
     crop_range_in = 2; % increasing extent of weather data region by this value (degree)
@@ -201,8 +169,6 @@ elseif strcmpi(merra_model,'merra2')
     filesTOdownlaod = [repmat('http://goldsmr5.gesdisc.eosdis.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2Fs4pa%2FMERRA2%2FM2I6NPANA.5.12.4%2F',n_files,1) date_vector(:,1:4) repmat('%2F',n_files,1) date_vector(:,5:6) repmat('%2FMERRA2_',n_files,1) datasetnumber_str repmat('.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.nc4&FORMAT=bmM0Yy8&BBOX=',n_files,1) repmat(num2str(S),n_files,1)  repmat('%2C',n_files,1) repmat(num2str(W),n_files,1) repmat('%2C',n_files,1) repmat(num2str(N),n_files,1) repmat('%2C',n_files,1) repmat(num2str(E),n_files,1) repmat('&TIME=1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00%2F1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00&LABEL=svc_MERRA2_',n_files,1) datasetnumber_str repmat('.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.nc4&FLAGS=&SHORTNAME=M2I6NPANA&SERVICE=SUBSET_MERRA2&LAYERS=&VERSION=1.02&VARIABLES=',n_files,1)];
     % the filename of the downloaded file as to be stored
     downloadFILEname = [repmat([merra_datapath filesep],n_files,1) date_vector(:,1:8) repmat(filesep,n_files,1)  repmat('MERRA2_',n_files,1) date_vector(:,1:8)  repmat('_',n_files,1) time_vector(:,1:2)  repmat('.nc4',n_files,1)];
-        
-
 
 else
     error('Does not exist. Either MERRA or MERRA2 model')
