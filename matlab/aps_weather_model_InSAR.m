@@ -40,10 +40,17 @@ function [] = aps_weather_model_InSAR(model_type)
 % 04/2016   DB      Forgot to remove call to old script
 % 05/2016   DB      Include merra2
 % 10/2016   DB 	    Include a fix inconsistent ifg matrix for stamps users who dropped ifgs
+% 10/2016   DB      Change to aps_save command with append functionality.
+% 11/2017   DB      Adding GACOS support, update the wording to inc angle
+%                   as that the correct name
 
+%% ERA-I, ERA5, WRF, MERRA1-2
 % Filename suffix of the output files
-wetoutfile = '_ZWD.xyz';
+wetoutfile = '_ZWD.xyz';   
 hydroutfile = '_ZHD.xyz'; 
+%% GACOS
+% Filename suffix of the output files
+outfile = '.ztd';
 
 % error calling if needed
 if nargin<1
@@ -59,10 +66,14 @@ if strcmpi(model_type,'era')
     weather_model_datapath = getparm_aps('era_datapath',1);
 elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
     weather_model_datapath = getparm_aps('merra_datapath',1);
+elseif strcmpi(model_type,'gacos')
+    weather_model_datapath = getparm_aps('gacos_datapath',1);
+else
+    error('Not a supported model: either: ERA, MERRA, MERRA2, GACOS')
 end 
 lambda = getparm_aps('lambda',1)*100;                       % radar wavelength in cm
 datestructure = 'yyyymmdd';                               % assumed date structure for era
-look_angle =  getparm_aps('look_angle',1);
+inc_angle =  getparm_aps('look_angle',1);
 
 
 % loading the data
@@ -72,9 +83,9 @@ if strcmp(stamps_processed,'y')
    load psver
    dates = ps.day;
    lonlat = ps.lonlat;
-   if ischar(look_angle)==1
-       look_angle = load(look_angle);
-       look_angle = look_angle.la;
+   if ischar(inc_angle)==1
+       inc_angle = load(inc_angle);
+       inc_angle = inc_angle.la;
    end
    
    % getting the dropped ifgs
@@ -124,9 +135,9 @@ else
     lonlat = lonlat.lonlat;
     
     % loading look angle information
-    if ischar(look_angle)==1
-       look_angle = load(look_angle);
-       look_angle = look_angle.la;
+    if ischar(inc_angle)==1
+       inc_angle = load(inc_angle);
+       inc_angle = inc_angle.la;
     end
     
     % getting the dates in jullian format
@@ -170,11 +181,12 @@ apssbname = [InSAR_datapath filesep 'tca_sb' num2str(psver) '.mat'];
 
 
 
-%% loading the ERA-I data
+%% loading the weather model data
 % initialisation 
 d_wet = NaN([size(lonlat,1) n_dates]);          % these are the SAR estimated tropospheric delays for all data
 d_hydro = NaN([size(lonlat,1) n_dates]);        % these are the SAR estimated tropospheric delays for all data
-
+d_total = NaN([size(lonlat,1) n_dates]);        % these are the SAR estimated tropospheric delays for all data
+flag_wet_hydro_used = 'n';
 
 ix_no_weather_model_data = [];
 counter = 0;
@@ -184,14 +196,16 @@ for k=1:n_dates
     % getting the SAR data and convert it to a string
     date_str = datestr(ps.day(k,1),datestructure);
 
-    % ERA-I filename
+    % filenames
     model_filename_wet = [weather_model_datapath filesep date_str filesep date_str wetoutfile];
     model_filename_hydro = [weather_model_datapath filesep date_str filesep date_str hydroutfile];
+    model_filename = [weather_model_datapath filesep date_str filesep date_str outfile];
 
     % checking if there is actual data for this date, if not just
     % leave NaN's in the matrix.
     
     if exist(model_filename_wet,'file') ==2
+        flag_wet_hydro_used = 'y';
         % computing the dry delay
         [xyz_input,xyz_output] = load_weather_model_SAR(model_filename_hydro,lonlat);
         % saving the data which have not been interpolated
@@ -205,9 +219,18 @@ for k=1:n_dates
         d_wet(:,k) = xyz_output(:,3);
         clear xyz_output
         counter = counter+1;
-                
+    elseif exist(model_filename,'file') ==2
+        flag_wet_hydro_used = 'n';
+        % this is the GACOS model file, will need to pass the model-type as
+        % its grid-note 
+        [xyz_input,xyz_output] = load_weather_model_SAR(model_filename,lonlat,[],model_type);
+        % saving the output data
+        d_total(:,k) = xyz_output(:,3);
+        clear xyz_output
+        counter = counter+1;
+
     else
-        % rejected list of ERA-I images
+        % rejected list of weather model images
        ix_no_weather_model_data = [ix_no_weather_model_data k]; 
     end
     clear model_filename_hydro model_filename_wet date_str
@@ -215,32 +238,40 @@ end
 fprintf([num2str(counter) ' out of ' num2str(n_dates) ' SAR images have a tropospheric delay estimated \n'])
 
 
+
+
 %% Computing the type of delay
-d_total = d_hydro+d_wet;
+if strcmpi(flag_wet_hydro_used,'y')
+    d_total = d_hydro+d_wet;
+end
 
 %% Converting the Zenith delays to a slant delay
-if size(look_angle,2)>1 && size(look_angle,1)==1
-    look_angle=look_angle';
+if size(inc_angle,2)>1 && size(inc_angle,1)==1
+    inc_angle=inc_angle';
 end
-if size(look_angle,2)==1
-    look_angle = repmat(look_angle,1,size(d_total,2));
-    if size(look_angle,1)==1
-        look_angle = repmat(look_angle,size(d_total,1),1);
+if size(inc_angle,2)==1
+    inc_angle = repmat(inc_angle,1,size(d_total,2));
+    if size(inc_angle,1)==1
+        inc_angle = repmat(inc_angle,size(d_total,1),1);
     end
 end
-    
-d_total = d_total./cos(look_angle);
-d_hydro = d_hydro./cos(look_angle);
-d_wet = d_wet./cos(look_angle);
+
+if strcmpi(flag_wet_hydro_used,'y')    
+    d_hydro = d_hydro./cos(inc_angle);
+    d_wet = d_wet./cos(inc_angle);
+end
+d_total = d_total./cos(inc_angle);
 
 
 %% Converting the range delay to a phase delay
 % converting to phase delay. 
 % The sign convention is such that ph_corrected = ph_original - ph_tropo*
 eval(['ph_SAR_' model_type '= -4*pi./lambda.*d_total;']);           % ph_SAR_era = -4*pi./lambda.*d_total;
-eval(['ph_SAR_' model_type '_hydro= -4*pi./lambda.*d_hydro;']);     % ph_SAR_era_dry= -4*pi./lambda.*d_hydro;
-eval(['ph_SAR_' model_type '_wet= -4*pi./lambda.*d_wet;']);         % ph_SAR_era_wet= -4*pi./lambda.*d_wet;
-
+if strcmpi(flag_wet_hydro_used,'y')
+    eval(['ph_SAR_' model_type '_hydro= -4*pi./lambda.*d_hydro;']);     % ph_SAR_era_dry= -4*pi./lambda.*d_hydro;
+    eval(['ph_SAR_' model_type '_wet= -4*pi./lambda.*d_wet;']);         % ph_SAR_era_wet= -4*pi./lambda.*d_wet;
+end
+clear d_total d_hydro d_wet
 
 %% Computing the interferometric tropopsheric delays
 % removing the dates for which there is no data.
@@ -262,8 +293,11 @@ if isempty(ifgs_ix)
 end
 % initialize the ERA phase matrix for all interferograms, including those without correction.
 eval(['ph_tropo_' model_type '= zeros([size(lonlat,1) n_ifg]);']);          % ph_tropo_era = zeros([size(lonlat,1) n_ifg]);
-eval(['ph_tropo_' model_type '_hydro= zeros([size(lonlat,1) n_ifg]);']);    % ph_tropo_era_hydro = zeros([size(lonlat,1) n_ifg]);
-eval(['ph_tropo_' model_type '_wet= zeros([size(lonlat,1) n_ifg]);']);      % ph_tropo_era_wet = zeros([size(lonlat,1) n_ifg]);
+if strcmpi(flag_wet_hydro_used,'y')
+    eval(['ph_tropo_' model_type '_hydro= zeros([size(lonlat,1) n_ifg]);']);    % ph_tropo_era_hydro = zeros([size(lonlat,1) n_ifg]);
+    eval(['ph_tropo_' model_type '_wet= zeros([size(lonlat,1) n_ifg]);']);      % ph_tropo_era_wet = zeros([size(lonlat,1) n_ifg]);
+end
+
 
 n_ifg_kept = size(ifgs_ix,1);
 for k=1:n_ifg_kept
@@ -278,37 +312,30 @@ for k=1:n_ifg_kept
     if good_ifg_data==1
         % ph_tropo_era(:,ifgs_ix(k,3)) = ph_SAR_era(:,ifgs_ix(k,1))-ph_SAR_era(:,ifgs_ix(k,2));
         eval(['ph_tropo_' model_type '(:,ifgs_ix(' num2str(k) ',3)) = ph_SAR_' model_type '(:,ifgs_ix(' num2str(k) ',1))-ph_SAR_' model_type '(:,ifgs_ix(' num2str(k) ',2));']);
-        % ph_tropo_era_hydro(:,ifgs_ix(k,3)) = ph_SAR_era_dry(:,ifgs_ix(k,1))-ph_SAR_era_dry(:,ifgs_ix(k,2));
-        eval(['ph_tropo_' model_type '_hydro(:,ifgs_ix(' num2str(k) ',3)) = ph_SAR_' model_type '_hydro(:,ifgs_ix(' num2str(k) ',1))-ph_SAR_' model_type '_hydro(:,ifgs_ix(' num2str(k) ',2));']);
-        % ph_tropo_era_wet(:,ifgs_ix(k,3)) = ph_SAR_era_wet(:,ifgs_ix(k,1))-ph_SAR_era_wet(:,ifgs_ix(k,2));
-        eval(['ph_tropo_' model_type '_wet(:,ifgs_ix(' num2str(k) ',3)) = ph_SAR_' model_type '_wet(:,ifgs_ix(' num2str(k) ',1))-ph_SAR_' model_type '_wet(:,ifgs_ix(' num2str(k) ',2));']);
+        if strcmpi(flag_wet_hydro_used,'y')
+            eval(['ph_tropo_' model_type '_hydro(:,ifgs_ix(' num2str(k) ',3)) = ph_SAR_' model_type '_hydro(:,ifgs_ix(' num2str(k) ',1))-ph_SAR_' model_type '_hydro(:,ifgs_ix(' num2str(k) ',2));']);
+            eval(['ph_tropo_' model_type '_wet(:,ifgs_ix(' num2str(k) ',3)) = ph_SAR_' model_type '_wet(:,ifgs_ix(' num2str(k) ',1))-ph_SAR_' model_type '_wet(:,ifgs_ix(' num2str(k) ',2));']);
+        end
     else
         % ph_tropo_era(:,ifgs_ix(k,3)) = NaN;
         eval(['ph_tropo_' model_type '(:,ifgs_ix(' num2str(k) ',3)) =NaN;']);
-        % ph_tropo_era_hydro(:,ifgs_ix(k,3)) = NaN;
-        eval(['ph_tropo_' model_type '_hydro(:,ifgs_ix(' num2str(k) ',3)) =NaN;']);
-        % ph_tropo_era_wet(:,ifgs_ix(k,3)) = NaN;
-        eval(['ph_tropo_' model_type '_wet(:,ifgs_ix(' num2str(k) ',3)) =NaN;']);
-
+        if strcmpi(flag_wet_hydro_used,'y')
+            eval(['ph_tropo_' model_type '_hydro(:,ifgs_ix(' num2str(k) ',3)) =NaN;']);
+            eval(['ph_tropo_' model_type '_wet(:,ifgs_ix(' num2str(k) ',3)) =NaN;']);
+        end
     end
 end
 
 
 
 if sb_flag==1
-    if exist(apssbname,'file')==2
-        eval(['save(''' apssbname ''',''-append'',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
-        % save(apssbname,'-append','ph_tropo_era','ph_tropo_era_wet','ph_tropo_era_hydro')
-    else
-        eval(['save(''' apssbname ''',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
-        % save(apssbname,'ph_tropo_era','ph_tropo_era_wet','ph_tropo_era_hydro')         
-    end
+    save_name = apssbname;
 else
-    if exist(apsname,'file')==2
-        eval(['save(''' apsname ''',''-append'',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
-        % save(apsname,'-append','ph_tropo_era','ph_tropo_era_wet','ph_tropo_era_hydro')
-    else
-        eval(['save(''' apsname ''',''ph_tropo_' model_type ''',''ph_tropo_' model_type '_wet'',''ph_tropo_' model_type '_hydro'');'])
-        % save(apsname,'ph_tropo_era','ph_tropo_era_wet','ph_tropo_era_hydro')       
-    end
+    save_name = apsname;
+end
+
+if strcmpi(flag_wet_hydro_used,'y')
+    eval(['aps_save(''' save_name ''',ph_tropo_' model_type ',ph_tropo_' model_type '_wet,ph_tropo_' model_type '_hydro);'])
+else
+    eval(['aps_save(''' save_name ''',ph_tropo_' model_type ');'])
 end

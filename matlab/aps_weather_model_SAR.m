@@ -67,12 +67,14 @@ function [] = aps_weather_model_SAR(model_type)
 % DB    04/2016     Branch into weather model script and include merra too
 % SSS   04/2016     Clear variables such memory need is reduced
 % DB    07/2016     redefine hydrostatic delay to be based on surface pressure.
+% DB    08/2016     Uncomment a keyboard
+% DB    07/2016     expand to include ERA5 test model data
 
 fig_test = 1;           % when 1 show the dem as debug figure
 save_3D_delays = 0;     % When 1 saves the tropopsheric delays for each x,y and with height
 
 if nargin<1
-    error('Give at least the model_type: era or merra')
+    error('Give at least the model_type: era, era5, merra, or merra2')
 end
 % change to lower caps for saving and filename generation consistency
 model_type = lower(model_type);
@@ -120,7 +122,6 @@ demnull = getparm_aps('dem_null',1);
 UTC_sat =  getparm_aps('UTC_sat',1);
 ifgday_matfile = getparm_aps('ifgday_matfile',1);
 ifgs_dates = load(ifgday_matfile);
-
 
 
 % loading the data
@@ -189,6 +190,8 @@ for d = 1:n_dates
             %% loading the weather model data
             if  strcmpi(model_type,'era')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
+            elseif  strcmpi(model_type,'era5')
+                 [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
             elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_merra(file,model_type,coeff) ;
             end
@@ -215,10 +218,9 @@ for d = 1:n_dates
             % is defined in the same way. Weatehr models can be [0 360]
             % degrees. User can be [-180 180] unlikely [0 360]
             if strcmpi(lon0360_flag,'y')
-                fprintf('This needs to be defined better and some checks are needed \n')
+                % fprintf('This needs to be defined better and some checks are needed \n')
                 % not all pixels should be shifted.
   
-                keyboard
                 if xmin<0
                    xmin= xmin+360; 
                 end

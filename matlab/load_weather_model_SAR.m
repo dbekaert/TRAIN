@@ -1,4 +1,4 @@
-function [xyz_input,xyz_output] = load_weather_model_SAR(filename,xy_out_grid,overwrite_flag) 
+function [xyz_input,xyz_output] = load_weather_model_SAR(filename,xy_out_grid,overwrite_flag,model_type)
 % [xyz] = load_weather_model_SAR(filename,crop_filename,geocoord_flag) 
 % script to read and optional interpolate or crop the data. When
 % interpolating, an initial crop is done based on the extend of the to be
@@ -30,6 +30,8 @@ function [xyz_input,xyz_output] = load_weather_model_SAR(filename,xy_out_grid,ov
 %                       correct compiling of the mex code.
 % DB    10/04/2016      Generalize for weather models
 % DB    29/04/2016      Include a fix in case the coordiantes are way off during geocooding.
+% DB    04/11/2017      Allow GMT and gmt to be an executable
+% DB    06/11/2017      Adding GACO support
 
 
 plot_flag = 0;
@@ -62,8 +64,15 @@ end
 if nargin <3 || isempty(overwrite_flag)
     overwrite_flag = 1;    
 end
+if nargin<4 || isempty(model_type)
+    model_type=[];
+end
 
-    
+% specific to GACOS model
+pixelreg = [];
+if strcmpi(model_type,'GACOS')
+    pixelreg = 'gridline';
+end
 
 
 %% checking the file type if its grd or not
@@ -71,14 +80,17 @@ file_type_grd = 'n';
 [file_path,temp,file_ext] = fileparts(filename);
 % check if this is a grd file already
 if strcmpi(file_ext,'.grd')
+    
+    % gmt information
+    [gmt5_above, gmt_version, GMT_string]=get_gmt_version();
+
     fprintf(['Specified aps correction is a .grd file\n'])
     file_type_grd = 'y';
     xyz_input = inf;
     
-    [gmt5_above, gmt_version]=get_gmt_version();
     error('This is currently under development')    
     
-else
+elseif strcmpi(file_ext,'.xyz')
     %% Loading of processed data files
     fid = fopen(filename,'r');
     data_vector = fread(fid,'double');
@@ -87,7 +99,62 @@ else
     % reshaping into the right 3 column matrix
     xyz_input = reshape(data_vector,3,[])';
     clear data_vector
+    
+elseif strcmpi(file_ext,'.ztd') & exist([filename '.rsc'],'file')==2    
+    %% Loading of processed data file using the rsc etension
+    [data_out] = load_roipac(filename);
+   
+    % generating the coordinate information
+    [ncols] = get_parm_rsc([filename '.rsc'],'width');
+    [nrows] = get_parm_rsc([filename '.rsc'],'file_length');
+    if isempty(nrows)
+        [nrows] = get_parm_rsc([filename '.rsc'],'length');
+    end
+    [lon_min] = get_parm_rsc([filename '.rsc'],'x_first');
+    [lat_max] = get_parm_rsc([filename '.rsc'],'y_first');
+    [lon_delta] = get_parm_rsc([filename '.rsc'],'x_step');
+    [lat_delta] = get_parm_rsc([filename '.rsc'],'y_step');
+    
+    if strcmp(pixelreg,'gridline')==0
+      lon_max = lon_min + ncols*lon_delta;
+      lat_min = lat_max + nrows*lat_delta;
+    else
+      lon_max = lon_min + (ncols-1)*lon_delta;
+      lat_min = lat_max + (nrows-1)*lat_delta;
+    end
+
+    % generating a mesh
+    lon_vector = [min([lon_max lon_min]) max([lon_max lon_min])];
+    lat_vector = [max([lat_max lat_min]) min([lat_max lat_min])];
+    [LON, LAT ]= meshgrid(linspace(lon_vector(1),lon_vector(2),ncols), linspace(lat_vector(1),lat_vector(2),nrows));
+    
+    % combining the data together
+    xyz_input = [reshape(LON',[],1), reshape(LAT',[],1), reshape(data_out,[],1)];
+    
+    
+    % GACOS put water to zero, will remove all water pixels
+    % GACOS is in m unit, convert to cm to be consistent with other methods
+    if strcmpi(model_type,'GACOS')
+        xyz_input(xyz_input(:,3)==0,:)=[];
+        % xyz_input = xyz_input(1:100:end,:);
+        xyz_input(:,3)=xyz_input(:,3)*100;
+    end
+    
+    
+%     figure;
+%     steps = [1:100:size(xyz_input,1)]';
+%     scatter3(xyz_input(steps,1),xyz_input(steps,2),xyz_input(steps,3),10,xyz_input(steps,3),'filled')
+%     view(0,90)
+%     axis equal
+%     axis tight
+%     colorbar
+%     axis xy
+    
+    clear data_vector LON LAT data_out
+else
+    error('File format not supported')
 end
+
 
 
 
@@ -161,9 +228,9 @@ if interpolate_flag==1
         save_name = [SAR_path filesep SAR_filename '_SARll'];
         % calling GMT for the interpolation to the ifg lonlat grid
         if strcmpi(gmt5_above,'y')
-           commandstr = ['grdtrack ' lonlat_file ' -G' filename '  -fg -N  -Z > ' save_name]
+           commandstr = [GMT_string 'grdtrack ' lonlat_file ' -G' filename '  -fg -N  -Z > ' save_name];
         else
-           commandstr = ['grdtrack ' lonlat_file ' -G' filename '  -fg -Qn  -Z > ' save_name]
+           commandstr = [GMT_string 'grdtrack ' lonlat_file ' -G' filename '  -fg -Qn  -Z > ' save_name];
             
         end
         aps_systemcall(commandstr);

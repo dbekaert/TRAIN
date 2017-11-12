@@ -1,8 +1,9 @@
 function [ Temp,WVapour,Geopot,Pressure,longrid,latgrid,xx,yy,lon0360_flag] = aps_load_era(file,era_data_type) 
-% loading era-I data from ECMWF or BADC websites
+% loading ERA-I or ERA5 data from ECMWF website or ERA-I from BADC website
 % Bekaert David
 % modifications
 % DB    10/04/2016  extract code from aps_era_SAR.m to make code modular
+% DB 	07/06/2017  Update syntax to include ERA5 model
 
 %%% Example on how to load netcdf files 
 % ncid = netcdf.open(file,'NC_NOWRITE');

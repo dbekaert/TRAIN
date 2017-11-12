@@ -1,13 +1,10 @@
 function [] = aps_era_files(orderflag_ECMWF_website)
-% script that runs and checks which ERA-I data files are needed based on
+% script that runs and checks which ERA5 data files are needed based on
 % the satellite pass time from the ECMWF website.
 % INPUTS:
 %
-%        ****** Specific for ECMWF data website ****** NOT BADC
+%        ****** Specific for ECMWF data website ****** 
 %        orderflag_ECMWF_website = 0/1 - no request(0)  (default(0)),
-% 
-%     Copyright (C) 2015  Bekaert David - University of Leeds
-%     Email: eedpsb@leeds.ac.uk or davidbekaert.com
 % 
 %     This program is free software; you can redistribute it and/or modify
 %     it under the terms of the GNU General Public License as published by
@@ -23,21 +20,8 @@ function [] = aps_era_files(orderflag_ECMWF_website)
 %     with this program; if not, write to the Free Software Foundation, Inc.,
 %     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %
-% By David Bekaert - October 2013
-% University of Leeds
+% By David Bekaert - June 2017
 % Modifications:
-% HB 01/2014    adding automatic reading of UTC_sat & ordering of necessary
-%               era files from ECMWF data website
-% DB 02/2014    Include non-stamps processed data support 
-% DB 02/2014    Put the python path in the source_file
-% DB 03/2014    Change script such it auto downloads the data from ECMWF website
-% DB 03/2014    Suppress command window output
-% DB 06/2014    Include an overwrite flag for files and delete the files
-%               first otherwize download does not work
-% DB 06/2014    Fixed typo in the East extend of the ERA data downlaod
-% DB 07/2014    Redefine meris_lat(lon)_range to region_lat(lon)_range
-% DB 06/2015    Fix typo
-% DB 11/2017    Stagger downloads by 5 sec as new api has a maximum downlaod.
 
 stdargin = nargin ; 
 if stdargin<1
@@ -49,10 +33,10 @@ end
 workdir = pwd;
 stamps_processed = getparm_aps('stamps_processed');
 UTC_sat =  getparm_aps('UTC_sat');
-era_datapath = getparm_aps('era_datapath');
+era5_datapath = getparm_aps('era_datapath');
 datestructure = 'yyyymmdd';                               % assumed date structure for era
-if isempty(era_datapath)
-    error('please specify era_datapath')
+if isempty(era5_datapath)
+    error('please specify era5_datapath')
 end
 
 % loading the data
@@ -60,9 +44,7 @@ if strcmp(stamps_processed,'y')
     ll_matfile = getparm_aps('ll_matfile');
     ps = load(ll_matfile);
     dates = ps.day;
-    load psver
 else
-    psver = 2;
     ifgday_matfile = getparm_aps('ifgday_matfile');
     ifgs_dates = load(ifgday_matfile);
     ifgs_dates = ifgs_dates.ifgday;
@@ -74,24 +56,27 @@ end
 % getting the dates
 n_dates = length(dates);
 
-
-% find two closest times with respect the the 6 hr ERA-I data
-timelist_ERA = ['0000' ; '0600' ; '1200' ; '1800' ; '0000'];
+% find two closest times with respect the 1hr spaced ERA5 data
+n_step =1;	% hr time-step
+timelist_ERA = ['0000' ; '0100';'0200';'0300';'0400' ;'0500';'0600' ;'0700';'0800';'0900';'1000' ;'1100'; '1200' ;'1300';'1400';'1500';'1600' ;'1700'; '1800' ;'1900';'2000';'2100';'2200' ;'2300'; '0000'];
 time = str2num(UTC_sat(1:2)) + str2num(UTC_sat(4:5))/60;
-t_before = floor(time/6);
-t_after = ceil(time/6);
+t_before = floor(time/n_step);
+t_after = ceil(time/n_step);
 fprintf(['Satellite pass is ' num2str(time) ' UTC \n'])
 
-% the faction it is closer towards the other date.
-f_after = (time - 6*t_before)/(6*t_after - 6*t_before);
+% the fraction it is closer towards the other date.
+f_after = (time - n_step*t_before)/(n_step*t_after - n_step*t_before);
 f_after(isnan(f_after))=1;
 f_before = 1-f_after;
 
-% the time stamp of the closest two ERA acquisitions
+% the time stamp of the closest two ERA5 acquisitions
 time1 = num2str(timelist_ERA(t_before+1,:));
 time2 = num2str(timelist_ERA(t_after+1,:));
-% The date for the times after 1800 will change to the next day latter on
+% The date for the times after 2300 will change to the next day latter on
 clear time
+if floor(24/n_step)~=24/n_step
+    error('Double check the time-step rounding to next day')
+end
 
 filelist = [];
 datelist = [];
@@ -100,7 +85,7 @@ for d = 1:n_dates
     
     % Satellite pass is in the evening, next acqusition is next day
     date2= date;
-    if t_after==4
+    if t_after==24/n_step
         date2 = datestr(dates(d)+1,datestructure);
     end
         
@@ -120,9 +105,9 @@ datelist = unique(datelist,'rows');
 
 
 % outputing this information to a file
-fid = fopen('ERA_I_files.txt','w');
-fid2 = fopen('ERA_I_dates.txt','w');
-fprintf(['Required ERA-I files for all interferograms \n'])
+fid = fopen('ERA5_files.txt','w');
+fid2 = fopen('ERA5_dates.txt','w');
+fprintf(['Required ERA5 files for all interferograms \n'])
 for k=1:size(filelist,1)
     fprintf([filelist(k,:) '\n']);
     fprintf(fid,[filelist(k,:) '\n']);
@@ -156,12 +141,12 @@ if orderflag_ECMWF_website==1
     E = num2str(max(round(region_lon_range)) + crop_range_in);       % DB fixed typo min to max  
     weatherregstr = [N,'/',W,'/',S,'/',E];   % N/W/S/E
     fprintf('weather model region N/W/S/E %s \n',weatherregstr);
-    fprintf('using mars service from ECMWF downloading to \n %s \n',era_datapath);
+    fprintf('using mars service from ECMWF downloading to \n %s \n',era5_datapath);
     % folder structure YYYYMMDD times within
 
     
     for l = 1:size(filelist,1)
-        subdirpath = [era_datapath,'/',filelist(l,5:12),'/'];
+        subdirpath = [era5_datapath,'/',filelist(l,5:12),'/'];
         if exist(subdirpath,'dir') == 0
             fprintf('creating directory %s \n',subdirpath);
             mkdir(subdirpath)
@@ -169,11 +154,10 @@ if orderflag_ECMWF_website==1
         if exist([subdirpath,'ggap', filelist(l,5:16) '.nc'],'file') == 0
             cd(subdirpath)
             fprintf('Order and downloading %s \n',filelist(l,5:16))
-            aps_era_ECMWF_Python(filelist(l,5:16),weatherregstr) %write python donwload file
+            aps_era5_ECMWF_Python(filelist(l,5:16),weatherregstr) %write python donwload file
             python_str = ['python ',filelist(l,5:16),'.py > ',filelist(l,5:16),'down.log &'];
             [a,b] = system(python_str); % start python script
             clear a b
-            pause(5);
             cd ..
         else
             if overwrite_flag==-1
@@ -193,11 +177,10 @@ if orderflag_ECMWF_website==1
                 cd(subdirpath)
                 delete([subdirpath,'ggap', filelist(l,5:16) '.nc'])
                 fprintf('Order and downloading %s \n',filelist(l,5:16))
-                aps_era_ECMWF_Python(filelist(l,5:16),weatherregstr) %write python donwload file
+                aps_era5_ECMWF_Python(filelist(l,5:16),weatherregstr) %write python donwload file
                 python_str = ['python ',filelist(l,5:16),'.py > ',filelist(l,5:16),'down.log &'];
                 [a,b] = system(python_str); % start python script
                 clear a b
-                pause(5);
                 cd ..
             elseif overwrite_flag==0
                 fprintf('File %s has already been downloaded \n',filelist(l,:))
