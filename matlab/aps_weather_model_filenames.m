@@ -25,6 +25,8 @@ function [modelfile_before,modelfile_after] = aps_weather_model_filenames(model_
 %
 % modification:
 % DB    02/05/2016  Fix bug for MERRA and MERRA 2, as the before and after were defined the same
+% DB    12/11/2017  Update merra to be netcdf 4, hdf5 does not seem to work
+%                   after ftp server changed.
 
 if nargin<6
     weather_model_datapath = pwd;
@@ -37,8 +39,10 @@ for d =1:size(date_before,1)
         modelfile_after(d,:) = [weather_model_datapath filesep date_after(d,:) filesep 'ggap' date_after(d,:) time_after(d,:) '.nc'];
     elseif strcmpi(model_type,'merra') 
         %Format MERRA_YYYYMMDD_HH.hdf
-        modelfile_before(d,:) = [weather_model_datapath filesep date_before(d,:) filesep 'MERRA_' date_before(d,:) '_' time_before(d,1:2) '.hdf'];         
-        modelfile_after(d,:) = [weather_model_datapath filesep date_after(d,:) filesep 'MERRA_' date_after(d,:) '_' time_after(d,1:2) '.hdf'];
+        %modelfile_before(d,:) = [weather_model_datapath filesep date_before(d,:) filesep 'MERRA_' date_before(d,:) '_' time_before(d,1:2) '.hdf'];         
+        %modelfile_after(d,:) = [weather_model_datapath filesep date_after(d,:) filesep 'MERRA_' date_after(d,:) '_' time_after(d,1:2) '.hdf'];
+        modelfile_before(d,:) = [weather_model_datapath filesep date_before(d,:) filesep 'MERRA_' date_before(d,:) '_' time_before(d,1:2) '.nc4'];         
+        modelfile_after(d,:) = [weather_model_datapath filesep date_after(d,:) filesep 'MERRA_' date_after(d,:) '_' time_after(d,1:2) '.nc4'];
     elseif strcmpi(model_type,'merra2')
         %Format MERRA2_YYYYMMDD_HH.nc4
         modelfile_before(d,:) = [weather_model_datapath filesep date_before(d,:) filesep 'MERRA2_' date_before(d,:) '_' time_before(d,1:2) '.nc4'];         

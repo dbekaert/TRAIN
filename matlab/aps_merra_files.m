@@ -124,7 +124,8 @@ if strcmpi(merra_model,'merra')
     
     % the URL of the file              
     filesTOdownlaod = [repmat('http://goldsmr3.gesdisc.eosdis.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2FMERRA%2FMAI6NPANA.5.2.0%2F',n_files,1) date_vector(:,1:4) repmat('%2F',n_files,1) date_vector(:,5:6) repmat('%2FMERRA',n_files,1) datasetnumber_str repmat('.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.hdf&FORMAT=aGRmLw&BBOX=',n_files,1) repmat(num2str(S),n_files,1)  repmat('%2C',n_files,1) repmat(num2str(W),n_files,1) repmat('%2C',n_files,1) repmat(num2str(N),n_files,1) repmat('%2C',n_files,1) repmat(num2str(E),n_files,1) repmat('&TIME=1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00%2F1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.SUB.hdf&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_MERRA&VERSION=1.02&LAYERS=&VARIABLES=ps%2Ch%2Ct%2Cqv',n_files,1)];
-    
+    filesTOdownlaod = [repmat('http://goldsmr3.gesdisc.eosdis.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2FMERRA%2FMAI6NPANA.5.2.0%2F',n_files,1) date_vector(:,1:4) repmat('%2F',n_files,1) date_vector(:,5:6) repmat('%2FMERRA',n_files,1) datasetnumber_str repmat('.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.hdf&FORMAT=bmM0Lw&BBOX=',n_files,1) repmat(num2str(S),n_files,1)  repmat('%2C',n_files,1) repmat(num2str(W),n_files,1) repmat('%2C',n_files,1) repmat(num2str(N),n_files,1) repmat('%2C',n_files,1) repmat(num2str(E),n_files,1) repmat('&TIME=1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00%2F1979-01-01T',n_files,1) time_vector(:,1:2) repmat('%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.',n_files,1) date_vector(:,1:8) repmat('.SUB.nc4&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_MERRA&VERSION=1.02&LAYERS=&VARIABLES=ps%2Ch%2Ct%2Cqv',n_files,1)];
+  
     
 % http://goldsmr3.gesdisc.eosdis.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2FMERRA%2FMAI6NPANA.5.2.0%2F2015%2F03%2FMERRA300.prod.assim.inst6_3d_ana_Np.20150310.hdf&FORMAT=aGRmLw&BBOX=34%2C-79%2C40%2C-73&TIME=1979-01-01T18%3A00%3A00%2F1979-01-01T18%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.20150310.SUB.hdf&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_MERRA&VERSION=1.02&LAYERS=&VARIABLES=ps%2Ch%2Ct%2Cqv
 % http://goldsmr3.gesdisc.eosdis.nasa.gov/daac-bin/OTF/HTTP_services.cgi?FILENAME=%2Fdata%2FMERRA%2FMAI6NPANA.5.2.0%2F2015%2F03%2FMERRA300.prod.assim.inst6_3d_ana_Np.20150310.hdf&FORMAT=aGRmLw&BBOX=34%2C-79%2C40%2C-73&TIME=1979-01-01T18%3A00%3A00%2F1979-01-01T18%3A00%3A00&LABEL=MERRA300.prod.assim.inst6_3d_ana_Np.20150310.SUB.hdf&SHORTNAME=MAI6NPANA&SERVICE=SUBSET_MERRA&VERSION=1.02&LAYERS=&VARIABLES=ps%2Ch%2Ct%2Cqv
@@ -134,6 +135,7 @@ if strcmpi(merra_model,'merra')
 
     % the filename of the downloaded file as to be stored
     downloadFILEname = [repmat([merra_datapath filesep],n_files,1) date_vector(:,1:8) repmat(filesep,n_files,1)  repmat('MERRA_',n_files,1) date_vector(:,1:8)  repmat('_',n_files,1) time_vector(:,1:2)  repmat('.hdf',n_files,1)];
+    downloadFILEname = [repmat([merra_datapath filesep],n_files,1) date_vector(:,1:8) repmat(filesep,n_files,1)  repmat('MERRA_',n_files,1) date_vector(:,1:8)  repmat('_',n_files,1) time_vector(:,1:2)  repmat('.nc4',n_files,1)];
        
     % give warning about end of the model
     ix_drop = datenum(date_vector,'yyyymmdd')>datenum('20160229','yyyymmdd');
@@ -142,6 +144,7 @@ if strcmpi(merra_model,'merra')
         fprintf([ num2str(sum(ix_drop)) '/' num2str(length(ix_drop)) ' dates do not have MERRA outputs \n'])
     end
     downloadFILEname(ix_drop,:)=[];
+    filesTOdownlaod(ix_drop,:)=[];
     
 elseif strcmpi(merra_model,'merra2')   
     crop_range_in = 2; % increasing extent of weather data region by this value (degree)
@@ -177,6 +180,8 @@ end
 
 % order the data and download it.
 overwrite_flag=-1;
+% update number of files for MERRA 1 could have dropped few to download
+n_files = size(downloadFILEname,1);
 if orderflag==1
     % not that some symbols from the url needs escape char to get through using wget.
     for k=1:n_files
@@ -187,7 +192,7 @@ if orderflag==1
             end
             fprintf(['Downloading: ' downloadfile file_ext '\n'])
             try
-                pause(5); %SSS 6/2016: must add pause or else you will be booted from server and certain files will be missing if requesting a large number of downloads.
+                pause(5); 
                 pass_to_cmd=['wget --user ',usern,' --password ', pass,' ''',filesTOdownlaod(k,:),'''',' -O ',downloadFILEname(k,:)];
                 [a,b] = system(pass_to_cmd);
                 clear a b pass_to_cmd;
@@ -215,7 +220,7 @@ if orderflag==1
                 delete(downloadFILEname(k,:))
                 fprintf(['Downloading: ' downloadfile file_ext '\n'])
                 try
-                    pause(5); %SSS 6/2016: must add pause or else you will be booted from server and certain files will be missing if requesting a large number of downloads.
+                    pause(5); 
                     pass_to_cmd=['wget --user ',usern,' --password ', pass,' ''',filesTOdownlaod(k,:),'''',' -O ',downloadFILEname(k,:)];
                     [a,b] = system(pass_to_cmd);
                     clear a b pass_to_cmd;

@@ -21,6 +21,7 @@ function [ Temp,WVapour,Geopot,Pressure,longrid,latgrid,xx,yy,lon0360_flag] = ap
 % modifications
 % DB    10/04/2016      Base this code on aps_load_era.m modular approach  
 % DB    01/05/2016      Include MERRA2 support
+% DB    12/11/2017      Change MERRA to be nc4 
 
 
 % debug figure to test and validate dataloading.
@@ -38,21 +39,88 @@ if ~isfield(coeff,'Rd') || ~isfield(coeff,'Rv')
    error('Coefficients Rd and Rv are not spcified') 
 end
 
-
+%%
 if strcmpi(merra_model,'merra')
-    hdf_file = hdfinfo(file);
-    Temp = hdfread(file,'/t');                      % temperature in [K]
-    qv  = hdfread(file,'/qv');                      % specific humidity
-    H =  hdfread(file,'/h');
-    % Convert Geopotential Height to geopotential
-    % important this is needed to be consitent with the other weather modules
-    g0 = 9.80665;
-    Geopot = H.*g0;                                 % geopotential
-    Psurface = hdfread(file,'/ps');                 % surface pressure in [hPa]
-    Plevs = hdfread(file,'/levels')';               % Pressure in [hPa]
-    lons = hdfread(file,'/longitude')';
-    lats = hdfread(file,'/latitude')';
+    
+    [a,b,file_ext] = fileparts(file);
+    
+    if strcmpi(file_ext,'.nc4')
+        % open the netcdf
+        ncid = netcdf.open(file,'NC_NOWRITE');
+
+        % read netcdf variables and get number of variables
+        [numdims,numvars,numglobalatts,unlimdimid] = netcdf.inq(ncid);      
+
+
+         % loading all the variables from the netcdf
+         for i = 0:numvars-1          
+            [varname, xtype, dimids, numatts] = netcdf.inqVar(ncid,i);
+            flag = 0;
+            for j = 0:numatts - 1
+                attname1 = netcdf.inqAttName(ncid,i,j);
+                attname2 = netcdf.getAtt(ncid,i,attname1);
+
+                if strcmp('add_offset',attname1)
+                    offset = attname2;
+                end
+
+                if strcmp('scale_factor',attname1)
+                    scale = attname2;
+                    flag = 1;
+                end
+            end
+            if flag
+                eval([varname '= double(netcdf.getVar(ncid,i))*scale + offset;']);
+            else
+                eval([varname '= double(netcdf.getVar(ncid,i));']);
+            end
+            clear varname xtype dimids numatts scale offset      
+         end
+
+         % close nedtcdf
+        netcdf.close(ncid)
+
+        % definition of QV
+        qv = QV;
+
+        % definition of geopotential
+        % Convert Geopotential Height to geopotential
+        % important this is needed to be consitent with the other weather modules
+        g0 = 9.80665;
+        Geopot = H.*g0;
+
+        % define geocoordinates
+        lons = XDim;
+        lats = YDim;
+        clear XDim YDim 
+        % define temperature
+        Temp = T;
+        clear T
+        % define pressure
+        Plevs = Height;
+        clear Height
+
+        % this is the time-stamps
+        TIME./60;
+
+    elseif  strcmpi(file_ext,'.hdf')
+        %% OLD HDF5 files, seems no longer to work for new MERRA website
+        % keep it for being backward compatible with earlier TRAIN version
+        hdf_file = hdfinfo(file);
+        Temp = hdfread(file,'/t');                      % temperature in [K]
+        qv  = hdfread(file,'/qv');                      % specific humidity
+        H =  hdfread(file,'/h');
+        % Convert Geopotential Height to geopotential
+        % important this is needed to be consitent with the other weather modules
+        g0 = 9.80665;
+        Geopot = H.*g0;                                 % geopotential
+        Psurface = hdfread(file,'/ps');                 % surface pressure in [hPa]
+        Plevs = hdfread(file,'/levels')';               % Pressure in [hPa]
+        lons = hdfread(file,'/longitude')';
+        lats = hdfread(file,'/latitude')';
+    end
 elseif strcmpi(merra_model,'merra2')
+    
     % open the netcdf
     ncid = netcdf.open(file,'NC_NOWRITE');
 
@@ -134,9 +202,15 @@ if strcmpi(merra_model,'merra2')
     Geopot = permute(Geopot,[2,1,3]);
 
 elseif  strcmpi(merra_model,'merra')
-    Temp = permute(Temp,[2,3,1]);
-    qv =  permute(qv,[2,3,1]);
-    Geopot = permute(Geopot,[2,3,1]);
+    if strcmpi(file_ext,'.nc4')
+        Temp = permute(Temp,[2,1,3]);
+        qv = permute(qv,[2,1,3]);
+        Geopot = permute(Geopot,[2,1,3]);
+    elseif strcmpi(file_ext,'.hdf')
+        Temp = permute(Temp,[2,3,1]);
+        qv =  permute(qv,[2,3,1]);
+        Geopot = permute(Geopot,[2,3,1]);
+    end
 end
 
 
