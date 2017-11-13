@@ -1,12 +1,28 @@
 When using TRAIN cite as follows:
-Bekaert, D.P.S., Walters, R.J., Wright, T.J., Hooper, A.J., and Parker, D.J. (2015c), Statistical comparison of InSAR tropospheric correction techniques, Remote Sensing of Environment, doi: 10.1016/j.rse.2015.08.035
+- Bekaert, D.P.S., Walters, R.J., Wright, T.J., Hooper, A.J., and Parker, D.J. (2015a), Statistical comparison of InSAR tropospheric correction techniques, Remote Sensing of Environment, doi: 10.1016/j.rse.2015.08.035
+- Bekaert, D.P.S., Hooper A., and  Wright, T.J. (2015b), A spatially-variable power-law tropospheric correction technique for InSAR data, JGR, doi:10.1029/2014JB011558
 
-You can use the following bibtex entry:
-@article{Bekaert2015c,
+
+You can use the following bibtex entries:
+@article{Bekaert2015a,
 author = "D.P.S. Bekaert and R.J. Walters and T.J. Wright and A.J. Hooper and D.J. Parker",
 title = "Statistical comparison of InSAR tropospheric correction techniques",
 journal = "Remote Sensing of Environment ",
 year = "2015",
 issn = "0034-4257",
 doi = "http://dx.doi.org/10.1016/j.rse.2015.08.035",
+}
+
+@article {Bekaert2015b,
+author = {Bekaert, D. P. S. and Hooper, A. and Wright, T. J.},
+title = {A spatially variable power law tropospheric correction technique for InSAR data},
+journal = {Journal of Geophysical Research: Solid Earth},
+volume = {120},
+number = {2},
+issn = {2169-9356},
+url = {http://dx.doi.org/10.1002/2014JB011558},
+doi = {10.1002/2014JB011558},
+pages = {1345--1356},
+year = {2015},
+note = {2014JB011558},
 }
