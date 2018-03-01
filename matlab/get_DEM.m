@@ -365,10 +365,16 @@ clear data data_vector
 
 
 %% load the resampled DEM
-nncols_cmd = ['echo `' GMT_string 'grdinfo tmp_smp.grd | grep nx | awk ''{print $NF}''`>', path_dem ,filesep ,'temp3'];
+if strcmp(gmt5_above,'y')
+    nncols_cmd = ['echo `' GMT_string 'grdinfo tmp_smp.grd | grep n_columns | awk ''{print $NF}''`>', path_dem ,filesep ,'temp3'];
+    nnrows_cmd = ['echo `' GMT_string 'grdinfo tmp_smp.grd | grep n_rows | awk ''{print $NF}''`>>', path_dem ,filesep ,'temp3'];
+else
+    nncols_cmd = ['echo `' GMT_string 'grdinfo tmp_smp.grd | grep nx | awk ''{print $NF}''`>', path_dem ,filesep ,'temp3'];
+    nnrows_cmd = ['echo `' GMT_string 'grdinfo tmp_smp.grd | grep ny | awk ''{print $NF}''`>>', path_dem ,filesep ,'temp3'];
+end
 aps_systemcall(nncols_cmd);
-nnrows_cmd = ['echo `' GMT_string 'grdinfo tmp_smp.grd | grep ny | awk ''{print $NF}''`>>', path_dem ,filesep ,'temp3'];
 aps_systemcall(nnrows_cmd);
+
 DEM_info = load([path_dem ,filesep 'temp3']);
 aps_systemcall(['rm ' path_dem ,filesep 'temp3']);
 nncols = DEM_info(1);
