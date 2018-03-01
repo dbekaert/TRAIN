@@ -43,23 +43,32 @@ function [] = aps_weather_model_InSAR(model_type)
 % 10/2016   DB      Change to aps_save command with append functionality.
 % 11/2017   DB      Adding GACOS support, update the wording to inc angle
 %                   as that the correct name
+% 03/2018   DB      Redefine the date information to include UTC information as well
 
-%% ERA-I, ERA5, WRF, MERRA1-2
-% Filename suffix of the output files
-wetoutfile = '_ZWD.xyz';   
-hydroutfile = '_ZHD.xyz'; 
-%% GACOS
-% Filename suffix of the output files
-outfile = '.ztd';
+datestructure = 'yyyymmdd';                               % assumed date structure for era
+
+
+% Use filenames as defined in 3beta version (will be removed). Does not disciminate between variable UTC time.
+backward_v3b = 'n';
+
+
+%% MODELS suffix
+% Filename suffix of the output files of GACOS
+GACOS_outfile = '.ztd';
+% Filename suffic for conventional models, ERA-I, ERA5, WRF, MERRA1-2
+model_outfile = '.xyz';
+
 
 % error calling if needed
 if nargin<1
-    error('Give at least the model_type: era or merra')
+    error('Give at least the model_type: era, era5, merra, merra2, gacos')
 end
 % getting the variables from the parms_aps file
 stamps_processed = getparm_aps('stamps_processed',1);
 ll_matfile = getparm_aps('ll_matfile',1);
 ifgday_matfile = getparm_aps('ifgday_matfile');
+lambda = getparm_aps('lambda',1)*100;                       % radar wavelength in cm
+UTC_sat =  getparm_aps('UTC_sat',1);
 
 model_type = lower(model_type);
 if strcmpi(model_type,'era')
@@ -71,114 +80,81 @@ elseif strcmpi(model_type,'gacos')
 else
     error('Not a supported model: either: ERA, MERRA, MERRA2, GACOS')
 end 
-lambda = getparm_aps('lambda',1)*100;                       % radar wavelength in cm
-datestructure = 'yyyymmdd';                               % assumed date structure for era
-inc_angle =  getparm_aps('look_angle',1);
 
 
-% loading the data
+% drop IFG's if not considered in processing
+drop_ifg_index=[];
+% set some defaults whichg et overwritten by 
+sb_flag = 0;
+psver = 2;
+
+
+% loading IFG date information
 if strcmp(stamps_processed,'y')
-   fprintf('Stamps processed structure \n')
-   ps = load(ll_matfile);
-   load psver
-   dates = ps.day;
-   lonlat = ps.lonlat;
-   if ischar(inc_angle)==1
-       inc_angle = load(inc_angle);
-       inc_angle = inc_angle.la;
-   end
-   
-   % getting the dropped ifgs
-   drop_ifg_index = getparm('drop_ifg_index');
+    fprintf('Stamps processed structure \n')
+
+    % loading psver information
+    load psver.mat
+    % getting the dropped ifgs
+    drop_ifg_index = getparm('drop_ifg_index',1);
     % getting the parms file list from stamps to see the final ifg list
     if strcmp(getparm('small_baseline_flag'),'y')
         sb_flag = 1;
-    else
-        sb_flag = 0;
     end
     
-    n_ifg = ps.n_ifg;
+    ifgs_dates = load(ifgday_matfile);
+    n_ifg = ifgs_dates.n_ifg;
+    ifg_number = [1:n_ifg]';
+
     % constructing the matrix with master and slave dates
     if sb_flag ==1
         % for SB
-        ifg_number = [1:n_ifg]';
-        ifgday_ix = ps.ifgday_ix;
-        % removing those dropped interferograms
-        ifgday_ix(drop_ifg_index,:) =[];
-        ifg_number(drop_ifg_index)=[];
-
-        % defining ix interferograms for which the delay needs to be computed
-        ifgs_ix = [ifgday_ix ifg_number];
+        ifg_dates = ifgs_dates.ifgday;
     else
-        % slightly different for PS.
-        date_slave_ix = [1:n_ifg]';
-        ifg_number = [1:n_ifg]';
-
-        % removing those interferograms that have been dropped
-        date_slave_ix(drop_ifg_index)=[];
-        ifg_number(drop_ifg_index)=[];
-
-        % the master dates
-        date_master_ix = repmat(ps.master_ix,size(date_slave_ix,1),1);
-
-        % ix interferograms
-        ifgs_ix = [date_master_ix date_slave_ix ifg_number];
+        ifg_dates = [master_day day];
+        diff(ifg_dates)
+        keyboard
     end
-else
-    psver = 2;
-	
-    % small baseline flag
-    sb_flag = 0;
-	    
-    % loading lon lat information
-    lonlat = load(ll_matfile);
-    lonlat = lonlat.lonlat;
-    
-    % loading look angle information
-    if ischar(inc_angle)==1
-       inc_angle = load(inc_angle);
-       inc_angle = inc_angle.la;
-    end
-    
+    ifg_dates(drop_ifg_index,:)=[];
+    ifg_number(drop_ifg_index,:)=[];
+else    
     % getting the dates in jullian format
-    ifgs_dates = load(ifgday_matfile);
-    ifgs_dates = ifgs_dates.ifgday;
-    dates = reshape(ifgs_dates,[],1);
-    dates = unique(dates);
-    dates = datenum(num2str(dates),'yyyymmdd');
-    dates = sort(dates);        % dates increasing with time
-    
-    % getting the ix position for the master and slave dates with respect
-    % to the times
-    date_master = datenum(num2str(ifgs_dates(:,1)),'yyyymmdd');
-    date_slave = datenum(num2str(ifgs_dates(:,2)),'yyyymmdd');
-    ifg_number = [1:size(date_master,1)]';
-    
-    drop_ifg_index=[];
-    
-    % dropping specific interferograms
-    date_slave(drop_ifg_index)=[];
-    date_master(drop_ifg_index)=[];
-    ifg_number(drop_ifg_index)=[];
-    for k=1:size(date_master,1)
-        [date_master_ix(k,1)] = find(date_master(k,1)==dates);
-        [date_slave_ix(k,1)] = find(date_slave(k,1)==dates);
-    end
-    
-    % ix interferograms
-    ifgs_ix = [date_master_ix date_slave_ix ifg_number];
-    
-    % number of total interferograms including dropped
-    n_ifg = size(ifgs_dates,1);
-    
-    % defining ps.day information
-    ps.day = dates;
+    ifg_dates = load(ifgday_matfile);
+    ifg_dates = ifg_dates.ifgday;
+    ifg_dates = [datenum(num2str(ifg_dates(:,1)),'yyyymmdd') datenum(num2str(ifg_dates(:,2)),'yyyymmdd')];
+    n_ifg = size(ifg_dates,1);
+    ifg_number = [1:n_ifg]';
 end
+
+% get a list of IFG dates which include the  UTC time for the IFG
+[ifg_dates] = aps_ifg_date_time(ifg_dates,UTC_sat);
+[time_before,time_after, date_before, date_after,f_before,f_after,UTC_sat_list,dates] = aps_weather_model_times(model_type,ifg_dates,UTC_sat);
 n_dates = length(dates);
+
+for k=1:size(ifg_dates,1)
+    % getting the ix position for the master and slave dates with respect to unique dates
+    [date_master_ix(k,1)] = find(ifg_dates(k,1)==dates);
+    [date_slave_ix(k,1)] = find(ifg_dates(k,2)==dates);
+end
+
+% ix interferograms
+ifgs_ix = [date_master_ix date_slave_ix ifg_number];
+clear date_slave_ix date_master_ix
+
+% load incidence angle (look angle is not as accurate)
+inc_angle =  getparm_aps('look_angle',1);
+if ischar(inc_angle)==1
+   inc_angle = load(inc_angle);
+   inc_angle = inc_angle.la;
+end
+% loading lon lat information
+lonlat = load(ll_matfile);
+lonlat = lonlat.lonlat;  
+
+
 InSAR_datapath=['.'];
 apsname = [InSAR_datapath filesep 'tca' num2str(psver) '.mat'];
 apssbname = [InSAR_datapath filesep 'tca_sb' num2str(psver) '.mat'];
-
 
 
 %% loading the weather model data
@@ -191,22 +167,30 @@ flag_wet_hydro_used = 'n';
 ix_no_weather_model_data = [];
 counter = 0;
 
-% looping over the dates 
+
+
+% looping over the dates and loading the data
 for k=1:n_dates
     % getting the SAR data and convert it to a string
-    date_str = datestr(ps.day(k,1),datestructure);
+    date_str = datestr(day(k,1),datestructure);
 
-    % filenames
-    model_filename_wet = [weather_model_datapath filesep date_str filesep date_str wetoutfile];
-    model_filename_hydro = [weather_model_datapath filesep date_str filesep date_str hydroutfile];
-    model_filename = [weather_model_datapath filesep date_str filesep date_str outfile];
+    % filenames to be loaded for weather models
+    model_filename_wet      = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_' UTC_sat_list(d,1:2) UTC_sat_list(d,4:5) '_ZWD' model_outfile];
+    model_filename_hydro    = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_' UTC_sat_list(d,1:2) UTC_sat_list(d,4:5) '_ZHD' model_outfile]; 
+
+    if strcmpi(backward_v3b,'y')
+        model_filename_wet = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_ZWD' model_outfile];
+        model_filename_hydro = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_ZHD' model_outfile];       
+    end
+    % filename to be loaded in case of GACOS
+    model_filename = [weather_model_datapath filesep date_str filesep date_str GACOS_outfile];
 
     % checking if there is actual data for this date, if not just
     % leave NaN's in the matrix.
     
     if exist(model_filename_wet,'file') ==2
         flag_wet_hydro_used = 'y';
-        % computing the dry delay
+        % computing the hydro delay
         [xyz_input,xyz_output] = load_weather_model_SAR(model_filename_hydro,lonlat);
         % saving the data which have not been interpolated
         d_hydro(:,k) = xyz_output(:,3);
@@ -214,7 +198,6 @@ for k=1:n_dates
         
         % computing the wet delays
         [xyz_input,xyz_output] = load_weather_model_SAR(model_filename_wet,lonlat);
-         
         % saving the output data
         d_wet(:,k) = xyz_output(:,3);
         clear xyz_output

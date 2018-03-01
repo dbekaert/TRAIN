@@ -342,6 +342,12 @@ if ~isfield(parms,'modis_recalibrated')
 end
 
 
+%% Regarding weather model in general
+if ~isfield(parms,'airborne_altitude')
+    % height of an airborne platform
+    parms.platform_altitude =[];
+end
+
 %% regarding ERA-I
 if ~isfield(parms,'era_datapath')
     % ERA-I data path

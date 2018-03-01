@@ -33,7 +33,7 @@ if nargin<6
 end
 
 for d =1:size(date_before,1)
-    if strcmpi(model_type,'era')    
+    if strcmpi(model_type,'era')  || strcmpi(model_type,'era5')   
         %Format ggapYYYYMMDDHHMM.nc
         modelfile_before(d,:) = [weather_model_datapath filesep date_before(d,:) filesep 'ggap' date_before(d,:) time_before(d,:) '.nc']; 
         modelfile_after(d,:) = [weather_model_datapath filesep date_after(d,:) filesep 'ggap' date_after(d,:) time_after(d,:) '.nc'];

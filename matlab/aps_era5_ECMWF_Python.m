@@ -25,6 +25,9 @@ year = timing(1:4);
 month = timing(5:6);
 day = timing(7:8);
 htime = timing(9:10);
+
+
+
 datestr = [year,'-',month,'-',day]; 
 
 pythonsc_path = [timing,'.py'];

@@ -37,14 +37,15 @@ curdir = pwd;
 if nargin <3
     error('Need to specify at least model_type, start_step, end_step');
 end
-if ~strcmpi(model_type,'era5') & ~strcmpi(model_type,'era') & ~strcmpi(model_type,'gacos') & ~strcmpi(model_type,'merra') & ~strcmpi(model_type,'merra2')
-    error(['model_type needs to be era, merra, merra2, gacos, era5'])
+if ~strcmpi(model_type,'era5') & ~strcmpi(model_type,'era') & ~strcmpi(model_type,'gacos') & ~strcmpi(model_type,'narr') & ~strcmpi(model_type,'merra') & ~strcmpi(model_type,'merra2')
+    error(['model_type needs to be era, era5, merra, merra2, gacos, narr'])
 end
 % define save path if not given
 if nargin<4
    save_path = [curdir filesep]; 
 end
 
+backward_comp='n'
 
 %% Defining the save path in case not given
 % filenames
@@ -58,17 +59,12 @@ end
 
 %% The different steps in the code
 if start_step==0
-    if strcmpi(model_type,'era') 
-        % Dummy run on the needed ERA-I files
-        fprintf('Step 0: Dummy run on the needed ERA-I data files \n')
-        aps_era_files(0);
-     elseif strcmpi(model_type,'era5')
-        % Dummy run on the needed ERA5 files
-        fprintf('Step 0: Dummy run on the needed ERA5 data files \n')
-        aps_era5_files(0);
+    fprintf(['Step 0: Dummy run on the needed ' upper(model_type) ' data files \n'])
+    if strcmpi(model_type,'era') || strcmpi(model_type,'era5')
+        % Dummy run on the needed ERA-I or ERA5 files
+        aps_era_files(0,model_type);
      elseif strcmpi(model_type,'gacos')
         % Dummy run on the needed gacos files
-        fprintf('Step 0: Dummy run on the needed gacos data files \n')
         aps_gacos_files(0);
      elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
         % required MERRA files
@@ -77,22 +73,21 @@ if start_step==0
 end
 if start_step<=1 && end_step >=1 
     fprintf(['Step 1: Order and Download ' upper(model_type) ' data files \n'])
-    if strcmpi(model_type,'era') 
-        % order the ECMWF data ERA-I files
+    if strcmpi(model_type,'era') || strcmpi(model_type,'era5')
+        % order the ECMWF data ERA-I or ERA5 files
         era_data_type = getparm_aps('era_data_type',1);
         if strcmpi(era_data_type,'ECMWF')
-            aps_era_files(1);
+            aps_era_files(1,model_type);
         else
             fprintf('You need to download BADC data from command line')
         end
     elseif strcmpi(model_type,'gacos')
         fprintf('You need to download GACOS data from the website, use GACOS_download_info.txt for relevant information\n')
-    elseif strcmpi(model_type,'era5')
-        aps_era5_files(1);
     elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
         aps_merra_files(1,model_type);
     end
 end
+
 if start_step<=2 && end_step >=2 
     % SAR zenith delays 
     fprintf(['Step 2: Compute the ' upper(model_type) ' tropospheric (zenith) delay for individual dates\n'])

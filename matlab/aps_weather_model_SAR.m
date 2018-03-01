@@ -69,15 +69,30 @@ function [] = aps_weather_model_SAR(model_type)
 % DB    07/2016     redefine hydrostatic delay to be based on surface pressure.
 % DB    08/2016     Uncomment a keyboard
 % DB    07/2016     expand to include ERA5 test model data
+% DB    02/2018     Allow for variable UTC times, make more modular. Allow
+%                   for grd saving, and make before/after aps saving optional
 
 fig_test = 1;           % when 1 show the dem as debug figure
+
+% save the 3D delay maps as .mat files
 save_3D_delays = 0;     % When 1 saves the tropopsheric delays for each x,y and with height
 
+% write the APS of the before and after UTC time stamps
+generate_before_after_aps = 'n';
+
+% generate grd files in addition to xyz of the APS files
+generate_grd_aps= 'n';
+
+% Use filenames as defined in 3beta version (will be removed). Does not disciminate between variable UTC time.
+backward_v3b = 'n';
+
+%% Changes below are code changes...
 if nargin<1
-    error('Give at least the model_type: era, era5, merra, or merra2')
+    error('Give at least the model_type: era, era5, merra, merra2, or narr')
 end
 % change to lower caps for saving and filename generation consistency
 model_type = lower(model_type);
+
 
 %% Constants
 % Parameters from Jolivet et al 2011, GRL
@@ -93,6 +108,15 @@ coeff.Rv = Rv;
 zref = 15000;       % zref for integration- tropopause
 zincr = 15;         % z increment spacing for vertical interpolation before integration
 vertres = 5;        % vertical resolution for comparing dem to vert profiles of delay
+% see if max interpolation heigh needs to be lowered.
+zref_max = getparm_aps('airborne_altitude');
+if ~isempty(zref_max)
+    zref_max = getparm_aps('airborne_altitude',1);
+    if zref>zref_max
+        zref = zref_max;
+    end
+end
+
 
 %% output file names
 % output file for the DEM and look angles
@@ -100,13 +124,21 @@ smpdem = 'dem_smp.xyz';
 
 % getting the variables from the parms_aps file
 stamps_processed = getparm_aps('stamps_processed',1);
-
-%%% defaults for the weather models. If not applicable it will be changed below for the specific model.
-timelist_model= ['0000' ; '0600' ; '1200' ; '1800' ; '0000'];       % the time interval the model is outputed
-era_data_type = [];                                                 % the weather model data type for ERA only.
-
+UTC_sat =  getparm_aps('UTC_sat',1);
+ifgday_matfile = getparm_aps('ifgday_matfile',1);
+ifgs_dates = load(ifgday_matfile);
+ifg_dates = ifgs_dates.ifgday;
+if ~strcmp(stamps_processed,'y')
+    ifg_dates = [datenum(num2str(ifg_dates(:,1)),'yyyymmdd') datenum(num2str(ifg_dates(:,2)),'yyyymmdd') ];
+else
+    keyboard 
+end
+lambda = getparm_aps('lambda',1)*100;                       % radar wavelength in cm
+demfile = getparm_aps('demfile',1);
+demnull = getparm_aps('dem_null',1);
 
 %%% Updating specific weather model information
+era_data_type = [];                                                 % the weather model data type for ERA only.
 if strcmpi(model_type,'era')
     weather_model_datapath = getparm_aps('era_datapath',1);
     era_data_type = getparm_aps('era_data_type');         % the datatype of the model either BADC or ERA
@@ -116,61 +148,56 @@ else
     error(['weather model type not supported, either: wrf, era, merra for now'])
 end
 
-lambda = getparm_aps('lambda',1)*100;                       % radar wavelength in cm
-demfile = getparm_aps('demfile',1);
-demnull = getparm_aps('dem_null',1);
-UTC_sat =  getparm_aps('UTC_sat',1);
-ifgday_matfile = getparm_aps('ifgday_matfile',1);
-ifgs_dates = load(ifgday_matfile);
-
-
-% loading the data
-if strcmp(stamps_processed,'y')
-   dates = ifgs_dates.day;
-   load psver
-   fprintf('Stamps processed structure \n')
-else
-    psver = 2;
-    ifgs_dates = ifgs_dates.ifgday;
-    dates = reshape(ifgs_dates,[],1);
-    dates = unique(dates);
-    dates = datenum(num2str(dates),'yyyymmdd');
-end
-
-% getting the dates
-n_dates = length(dates);
 
 %% Compute and resample DEM
-[dem,xmin,xmax,ymin,ymax,smpres,nncols,nnrows] = get_DEM;
+% [dem,xmin,xmax,ymin,ymax,smpres,nncols,nnrows] = get_DEM;
+% 
+% % the region which is cropped from the ERA data and used to make the interpolation.
+% % Should be  larger than the region to which the delay is computed
+% lonmin = floor(xmin)-1;
+% lonmax= ceil(xmax)+1;
+% latmin = floor(ymin)-1;
+% latmax = ceil(ymax)+1;
+% 
+% % setting the maximum height of the DEM to limit the range at which ERA-I
+% % needs to be interpolated to
+% maxdem = ceil(max(max(dem))/100)*100+50; % max height of dem in metres
+% 
+% fprintf(['Interpolate to a maximum dem height of ', num2str(maxdem) ,' m\n'])
 
-% the region which is cropped from the ERA data and used to make the interpolation.
-% Should be  larger than the region to which the delay is computed
-lonmin = floor(xmin)-1;
-lonmax= ceil(xmax)+1;
-latmin = floor(ymin)-1;
-latmax = ceil(ymax)+1;
 
-% setting the maximum height of the DEM to limit the range at which ERA-I
-% needs to be interpolated to
-maxdem = ceil(max(max(dem))/100)*100+50; % max height of dem in metres
+%% Compute based on satellite pass which weather model outputs that will be used
+[time_before,time_after, date_before, date_after,f_before,f_after,UTC_sat_list,dates] = aps_weather_model_times(model_type,ifg_dates,UTC_sat);
 
-fprintf(['Interpolate to a maximum dem height of ', num2str(maxdem) ,' m\n'])
-
-
-%% Compute based on Satellite pass which weather model outputs that will be used
-[time_before,time_after, date_before, date_after,f_before,f_after] = aps_weather_model_times(timelist_model,dates,UTC_sat);
+keyboard
 
 %% generating a file 
 [modelfile_before,modelfile_after] = aps_weather_model_filenames(model_type,time_before,time_after,date_before, date_after,weather_model_datapath);
 
 
 %% performing the calucluation for each date 
+n_dates = size(time_before,1);
+
+
 for d = 1:n_dates
- 
     % the save filenames
-    outfile = [weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_ZWD.xyz'];
-    hydroutfile = [weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_ZHD.xyz']; 
-     
+    wetoutfile          = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_' UTC_sat_list(d,1:2) UTC_sat_list(d,4:5) '_ZWD'];
+    wetoutfile_before   = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_' UTC_sat_list(d,1:2) UTC_sat_list(d,4:5)  '_ZWD_before' ];
+    wetoutfile_after    = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_' UTC_sat_list(d,1:2) UTC_sat_list(d,4:5)  '_ZWD_after'];
+    hydroutfile         = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_' UTC_sat_list(d,1:2) UTC_sat_list(d,4:5) '_ZHD' ]; 
+    hydroutfile_before  = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_' UTC_sat_list(d,1:2) UTC_sat_list(d,4:5)  '_ZHD_before'];
+    hydroutfile_after   = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_' UTC_sat_list(d,1:2) UTC_sat_list(d,4:5)  '_ZHD_after'];
+
+    if strcmpi(backward_v3b,'y')
+        wetoutfile = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_ZWD'];
+        wetoutfile_before = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_ZWD_before'];
+        wetoutfile_after = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_ZWD_after'];
+        hydroutfile = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_ZHD'];       
+        hydroutfile_before = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_ZHD_before'];
+        hydroutfile_after = [weather_model_datapath filesep datestr(dates(d,:),'yyyymmdd') filesep datestr(dates(d,:),'yyyymmdd') '_ZHD_after'];
+    end
+        
+
     no_data = 0;
     for kk = 1:2
         if kk == 1
@@ -179,27 +206,22 @@ for d = 1:n_dates
         if kk == 2
             file = modelfile_after(d,:);
         end
-        
+
         
         % check
         if exist(file,'file')~=2
             no_data = no_data+1;
         else
             
-            
             %% loading the weather model data
-            if  strcmpi(model_type,'era')
-                 [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
-            elseif  strcmpi(model_type,'era5')
+            if  strcmpi(model_type,'era') ||  strcmpi(model_type,'era5')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
             elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_merra(file,model_type,coeff) ;
             end
             
-            
             %% verify and cope with NAN's
             [ Temp,e,Geopot,P,longrid,latgrid] =  aps_weather_model_nan_check( Temp,e,Geopot,P,longrid,latgrid) ;
-
 
             % define weather model grid nodes
             latlist = reshape(latgrid(:,:,1),[],1);
@@ -287,7 +309,7 @@ for d = 1:n_dates
                     str = input('Continue? [y: for yes, n: no] \n','s');
                 end
                 if strcmpi(str,'n')
-                    error('Check your lon lat crop, otherwize extend area of downlaoded weather model data.')
+                    error('Check your lon lat crop, otherwize extend area of downloaded weather model data.')
                 end
             end
             
@@ -344,7 +366,7 @@ for d = 1:n_dates
             cdstack = zeros(numy,numx,cdslices);
             cdstack_dry = zeros(numy,numx,cdslices);
             cdstack_wet = zeros(numy,numx,cdslices);
-
+            
             XI=(0:zincr:zref)';
             gh = glocal.*(Rlocal./(Rlocal+XI)).^2; %gravity with height for XI height range
 
@@ -423,8 +445,6 @@ for d = 1:n_dates
                     dry1 = cdstack_dry3D;
                     wet1 = cdstack_wet3D;
                     
-                    
-                    
                                 
                     % also give the station topography
                     dem_temp = dem;
@@ -453,14 +473,14 @@ for d = 1:n_dates
                newslice = interp2(lonlist_matrix,latlist_matrix,cdstack_wet(:,:,n),xi,yi,'linear');   
                cdstack_interp_wet(:,:,n)= flipud(newslice); % flipud due to ypositive downpage for matlab figs, and ypositive uppage for utmy
             end
-            clear lonlist_matrix latlist_matrix %%%SSS 4/16
+            clear lonlist_matrix latlist_matrix
             % keeping the coordinates in the same grid as the data
             xi = flipud(xi);
             yi = flipud(yi);
 
 
             % Pull out delays from cdstack layers that match dem heights
-            clear wetcorrection hydrcorrection rounddem %%%SSS 4/16
+            clear wetcorrection hydrcorrection rounddem 
             wetcorrection = ones(nnrows,nncols);
             hydrcorrection = ones(nnrows,nncols);
             rounddem = round(dem/vertres);
@@ -483,11 +503,11 @@ for d = 1:n_dates
 
             if kk==1
                 wetcorrection1 = wetcorrection;
-                drycorrection1 = hydrcorrection;
+                hydrocorrection1 = hydrcorrection;
             end
             if kk==2
                 wetcorrection2 = wetcorrection;
-                drycorrection2 = hydrcorrection;
+                hydrocorrection2 = hydrcorrection;
             end
             clear wetcorrection hydrcorrection
 
@@ -495,70 +515,86 @@ for d = 1:n_dates
     end
 
 
-    
-    
     if sum(no_data)==0
-        % note that this is a one way Zenith delay and not a slant delay. 
-        % Units are in cm
+        % note that this is a one way Zenith delay and not a slant delay [Units are in cm]
 
+        % save the before and after UTC estimates if requested units are cm
+        if strcmpi(generate_before_after_aps,'y')
+            % wet before
+            fidwet_before = fopen([wetoutfile_before '.xyz'],'w');
+            data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(wetcorrection1.*100,[],1)]';
+            tally = fwrite(fidwet_before,data_write,'double');
+            fclose(fidwet_before);
+            clear data_write tally 
+            % wet after
+            fidwet_after = fopen([wetoutfile_after '.xyz'],'w');
+            data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(wetcorrection2.*100,[],1)]';
+            tally = fwrite(fidwet_after,data_write,'double');
+            fclose(fidwet_after);
+            clear data_write tally 
+            % hydro before
+            fidhydro_before = fopen([hydroutfile_before '.xyz'],'w');
+            data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(hydrocorrection1.*100,[],1)]';
+            tally = fwrite(fidhydro_before,data_write,'double');
+            fclose(fidhydro_before); 
+            % hydro after
+            clear data_write tally 
+            fidhydro_after = fopen([hydroutfile_after '.xyz'],'w');
+            data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(hydrocorrection2.*100,[],1)]';
+            tally = fwrite(fidhydro_after,data_write,'double');
+            fclose(fidhydro_after);
+            clear data_write tally
 
-        % saving individual estimates based on the time-stamp
-        outfile_wet_before = [weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_ZWD_before.xyz'];
-        outfile_wet_after = [weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_ZWD_after.xyz'];
-        outfile_dry_before = [weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_ZHD_before.xyz'];
-        outfile_dry_after = [weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_ZHD_after.xyz'];
-
-
-        fidwet_before = fopen(outfile_wet_before,'w');
-        data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(wetcorrection1,[],1)]';
-        tally = fwrite(fidwet_before,data_write,'double');
-        fclose(fidwet_before);
-        clear data_write tally %%%SSS 4/16
-        fidwet_after = fopen(outfile_wet_after,'w');
-        data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(wetcorrection2,[],1)]';
-        tally = fwrite(fidwet_after,data_write,'double');
-        fclose(fidwet_after);
-        clear data_write tally %%%SSS 4/16
-        fiddry_before = fopen(outfile_dry_before,'w');
-        data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(drycorrection1,[],1)]';
-        tally = fwrite(fiddry_before,data_write,'double');
-        fclose(fiddry_before); 
-        clear data_write tally %%%SSS 4/16
-        fiddry_after = fopen(outfile_dry_after,'w');
-        data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(drycorrection2,[],1)]';
-        tally = fwrite(fiddry_after,data_write,'double');
-        fclose(fiddry_after);
-        clear data_write tally %%%SSS 4/16
-
-        % saving the outputs
-        if save_3D_delays==1   
-            wet = wet1*f_before(d) +  wet2*f_after;
-            dry = dry1*f_before(d) +  dry2*f_after;
-            save([weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_3D.mat'],'dry','wet','hgt','lon','lat','hgt_topo')
-            clear wet dry hgt dry1 dry2 wet1 wet2 %%%SSS 4/16
+            % generating the grid files if requested
+            if strcmpi(generate_grd_aps,'y')
+                xyz2grd_cmd = ['xyz2grd -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' -I',num2str(nncols),'+/',num2str(nnrows),'+ ',wetoutfile_before,'.xyz',' -bi -G', wetoutfile_before ,'.grd'];
+                aps_systemcall(xyz2grd_cmd);
+                xyz2grd_cmd = ['xyz2grd -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' -I',num2str(nncols),'+/',num2str(nnrows),'+ ',wetoutfile_after,'.xyz',' -bi -G', wetoutfile_after ,'.grd'];
+                aps_systemcall(xyz2grd_cmd);
+                xyz2grd_cmd = ['xyz2grd -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' -I',num2str(nncols),'+/',num2str(nnrows),'+ ',hydroutfile_before,'.xyz',' -bi -G', hydroutfile_before ,'.grd'];
+                aps_systemcall(xyz2grd_cmd);
+                xyz2grd_cmd = ['xyz2grd -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' -I',num2str(nncols),'+/',num2str(nnrows),'+ ',hydroutfile_after,'.xyz',' -bi -G', hydroutfile_after ,'.grd'];
+                aps_systemcall(xyz2grd_cmd);
+            end
         end
         
 
+        % Save the 3D outputs if requested units are m
+        if save_3D_delays==1   
+            wet = wet1*f_before(d) +  wet2*f_after;
+            dry = dry1*f_before(d) +  dry2*f_after;
+            aps_save([weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_3D.mat'],dry,wet,hgt,lon,lat,hgt_topo)
+            clear wet dry
+        end
+        clear dry1 dry2 wet1 wet2 hgt
+
                 
-        % Output wet correction
+        % Output wet total correction in cm units
         wetcorrection = wetcorrection1*f_before(d) +  wetcorrection2*f_after(d);
         clear wetcorrection1 wetcorrection2
         wetcorrection = wetcorrection*100;                 % delay in [cm]
-        fid = fopen(outfile,'w');
+        fid = fopen([wetoutfile '.xyz'],'w');
         data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(wetcorrection,[],1)]';
         tally = fwrite(fid,data_write,'double');
         fclose(fid);
-        clear data_write tally wetcorrection %%%SSS 4/16
+        clear data_write tally wetcorrection 
 
-        % Output hydrostatic correction
-        hydrcorrection = drycorrection1*f_before(d) +  drycorrection2*f_after(d);
-        clear drycorrection1 drycorrection2
+        % Output total hydrostatic correction in cm units
+        hydrcorrection = hydrocorrection1*f_before(d) +  hydrocorrection2*f_after(d);
+        clear hydrocorrection1 hydrocorrection2
         hydrcorrection = hydrcorrection*100;                 % delay in [cm]
-        fid = fopen(hydroutfile,'w');
+        fid = fopen([hydroutfile '.xyz'],'w');
         data_write =  [reshape(xi,[],1) reshape(yi,[],1) reshape(hydrcorrection,[],1)]';
         tally = fwrite(fid,data_write,'double');
         fclose(fid);
-        clear data_write tally hydrcorrection %%%SSS 4/16
+        clear data_write tally hydrcorrection 
+        
+        if strcmpi(generate_grd_aps,'y')
+            xyz2grd_cmd = ['xyz2grd -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' -I',num2str(nncols),'+/',num2str(nnrows),'+ ',wetoutfile,'.xyz',' -bi -G', wetoutfile ,'.grd'];
+            aps_systemcall(xyz2grd_cmd);
+            xyz2grd_cmd = ['xyz2grd -R',num2str(xmin),'/',num2str(xmax),'/',num2str(ymin),'/',num2str(ymax),' -I',num2str(nncols),'+/',num2str(nnrows),'+ ',hydroutfile,'.xyz',' -bi -G', hydroutfile ,'.grd'];
+            aps_systemcall(xyz2grd_cmd);
+        end
 
         fprintf([num2str(d) ' completed out of ' num2str(n_dates) '\n' ])
         
