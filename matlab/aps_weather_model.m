@@ -1,7 +1,7 @@
 function [] = aps_weather_model(model_type,start_step,end_step,save_path)
 % [] = aps_weather_model(model_type,start_step,end_step)
 % Function that computes the interferometric tropospheric delays from
-% weather model including ERA-Interim, ERA5 (test data), MERRA, MERRA2.
+% weather model including ERA-Interim, ERA5 (test data), NARR, MERRA, MERRA2.
 %
 %     Copyright (C) 2015  Bekaert David - University of Leeds
 %     Email: eedpsb@leeds.ac.uk or davidbekaert.com
@@ -29,6 +29,7 @@ function [] = aps_weather_model(model_type,start_step,end_step,save_path)
 % 04/2016   DB  Convert to a generic weather model correction using modular
 %               approach. Include support for MERRA.
 % 07/2017   DB 	Adding ERA5 model based on test-data
+% 02/2018   KM 	Adding NARR model based on test-data
 
 % current processing directory
 curdir = pwd;
@@ -37,8 +38,8 @@ curdir = pwd;
 if nargin <3
     error('Need to specify at least model_type, start_step, end_step');
 end
-if ~strcmpi(model_type,'era5') & ~strcmpi(model_type,'era') & ~strcmpi(model_type,'gacos') & ~strcmpi(model_type,'merra') & ~strcmpi(model_type,'merra2')
-    error(['model_type needs to be era, merra, merra2, gacos, era5'])
+if ~strcmpi(model_type,'era5') & ~strcmpi(model_type,'era') & ~strcmpi(model_type,'gacos') & ~strcmpi(model_type,'merra') & ~strcmpi(model_type,'narr') & ~strcmpi(model_type,'merra2')
+    error(['model_type needs to be era, merra, merra2, gacos, era5, narr'])
 end
 % define save path if not given
 if nargin<4
@@ -73,6 +74,9 @@ if start_step==0
      elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
         % required MERRA files
         aps_merra_files(0,model_type);
+     elseif strcmpi(model_type,'narr') 
+        % required narr files
+        aps_narr_files(0);
     end
 end
 if start_step<=1 && end_step >=1 
@@ -91,6 +95,8 @@ if start_step<=1 && end_step >=1
         aps_era5_files(1);
     elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
         aps_merra_files(1,model_type);
+    elseif strcmpi(model_type,'narr') 
+        aps_narr_files(1);
     end
 end
 if start_step<=2 && end_step >=2 
