@@ -69,12 +69,13 @@ function [] = aps_weather_model_SAR(model_type)
 % DB    07/2016     redefine hydrostatic delay to be based on surface pressure.
 % DB    08/2016     Uncomment a keyboard
 % DB    07/2016     expand to include ERA5 test model data
+% KM    02/2018     expand to include NARR model data
 
-fig_test = 1;           % when 1 show the dem as debug figure
+fig_test = 0;           % when 1 show the dem as debug figure
 save_3D_delays = 0;     % When 1 saves the tropopsheric delays for each x,y and with height
 
 if nargin<1
-    error('Give at least the model_type: era, era5, merra, or merra2')
+    error('Give at least the model_type: era, era5, narr, merra, or merra2')
 end
 % change to lower caps for saving and filename generation consistency
 model_type = lower(model_type);
@@ -102,7 +103,13 @@ smpdem = 'dem_smp.xyz';
 stamps_processed = getparm_aps('stamps_processed',1);
 
 %%% defaults for the weather models. If not applicable it will be changed below for the specific model.
-timelist_model= ['0000' ; '0600' ; '1200' ; '1800' ; '0000'];       % the time interval the model is outputed
+if strcmp(model_type,'narr')
+    timelist_model = ['0000' ;'0300'; '0600' ; '0900'; '1200' ;'1500'; '1800' ;'2100'; '0000'];
+    model_lag = 8*7;    % days
+else
+    timelist_model= ['0000' ; '0600' ; '1200' ; '1800' ; '0000'];       % the time interval the model is outputed
+    model_lag = 0; % ? check lags
+end
 era_data_type = [];                                                 % the weather model data type for ERA only.
 
 
@@ -112,8 +119,11 @@ if strcmpi(model_type,'era')
     era_data_type = getparm_aps('era_data_type');         % the datatype of the model either BADC or ERA
 elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
     weather_model_datapath = getparm_aps('merra_datapath',1); 
+elseif strcmpi(model_type,'narr') 
+    weather_model_datapath = getparm_aps('narr_datapath',1); 
+
 else
-    error(['weather model type not supported, either: wrf, era, merra for now'])
+    error(['weather model type not supported, either: wrf, era, narr, merra for now'])
 end
 
 lambda = getparm_aps('lambda',1)*100;                       % radar wavelength in cm
@@ -158,7 +168,7 @@ fprintf(['Interpolate to a maximum dem height of ', num2str(maxdem) ,' m\n'])
 
 
 %% Compute based on Satellite pass which weather model outputs that will be used
-[time_before,time_after, date_before, date_after,f_before,f_after] = aps_weather_model_times(timelist_model,dates,UTC_sat);
+[time_before,time_after, date_before, date_after,f_before,f_after] = aps_weather_model_times(timelist_model,dates,UTC_sat,model_lag);
 
 %% generating a file 
 [modelfile_before,modelfile_after] = aps_weather_model_filenames(model_type,time_before,time_after,date_before, date_after,weather_model_datapath);
@@ -185,21 +195,20 @@ for d = 1:n_dates
         if exist(file,'file')~=2
             no_data = no_data+1;
         else
-            
-            
-            %% loading the weather model data
+               
+            % loading the weather model data
             if  strcmpi(model_type,'era')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
             elseif  strcmpi(model_type,'era5')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
             elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_merra(file,model_type,coeff) ;
+            elseif strcmpi(model_type,'narr')
+                 [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_narr(file,model_type,coeff) ;
             end
-            
-            
-            %% verify and cope with NAN's
-            [ Temp,e,Geopot,P,longrid,latgrid] =  aps_weather_model_nan_check( Temp,e,Geopot,P,longrid,latgrid) ;
-
+%             longrid=longrid';latgrid=latgrid';
+            % verify and cope with NAN's
+            [Temp,e,Geopot,P,longrid,latgrid] =  aps_weather_model_nan_check(Temp,e,Geopot,P,longrid,latgrid) ;
 
             % define weather model grid nodes
             latlist = reshape(latgrid(:,:,1),[],1);
@@ -207,7 +216,7 @@ for d = 1:n_dates
             xlist = reshape(xx,[],1);
             ylist = reshape(yy,[],1);
 
-            %% Limit weather model to those grid points around the user-defined InSAR box
+            % Limit weather model to those grid points around the user-defined InSAR box
             % Getting the weather model resolution
             lat_res = abs(diff(unique(latgrid)))*1.5;
             lat_res = lat_res(1);
@@ -228,7 +237,6 @@ for d = 1:n_dates
                    xmax = xmax +360; 
                 end
             end
-
 
             % generation a plot
             if fig_test ==1 & d==1 & kk==1
@@ -309,13 +317,13 @@ for d = 1:n_dates
             else
                 eval(['save(''tca_support.mat'',''' model_type ''');']);                                % save('tca_support.mat','era')        
             end
-            if fig_test ==1 & d==1 & kk==1
-                    if exist(['aps_' model_type],'dir')~=7
-                        mkdir(['aps_' model_type]);
-                    end
-                    print(hfig,'-dpng',['aps_' model_type  filesep model_type '_datapoints.png'])
-                    print(hfig,'-depsc',['aps_' model_type filesep model_type '_datapoints.eps'])
-            end
+%             if fig_test ==1 & d==1 & kk==1
+%                     if exist(['aps_' model_type],'dir')~=7
+%                         mkdir(['aps_' model_type]);
+%                     end
+%                     print(hfig,'-dpng',['aps_' model_type  filesep model_type '_datapoints.png'])
+%                     print(hfig,'-depsc',['aps_' model_type filesep model_type '_datapoints.eps'])
+%             end
             eval(['clear ' model_type]);
          
 
@@ -374,7 +382,6 @@ for d = 1:n_dates
                     gm = glocal; 
                     Ld = (10^-6).*((k1*Rd/gm).*(YPI - YPI(zref/zincr +1)));                 % This is P0 expression (Hanssen, 2001)
 
-                
                     % Interpolate important part (i.e. total delay at elevations
                     % less than maxdem) at high res i.e. vertres, and put in cdstack.
                     cdI=(0:vertres:maxdem)';
@@ -397,8 +404,7 @@ for d = 1:n_dates
                     end
                 end
             end
-            clear uxlist uylist ulonlist ulatlist %%%SSS 4/16
-             
+            clear uxlist uylist ulonlist ulatlist %%%SSS 4/16            
 
             % Interpolate each cdstack layer onto a grid given by the DEM extents
             % in UTM m.
@@ -422,10 +428,7 @@ for d = 1:n_dates
                     lat = latlist_matrix;
                     dry1 = cdstack_dry3D;
                     wet1 = cdstack_wet3D;
-                    
-                    
-                    
-                                
+                                              
                     % also give the station topography
                     dem_temp = dem;
                     dem_temp(isnan(dem_temp))=0;
@@ -494,13 +497,9 @@ for d = 1:n_dates
         end
     end
 
-
-    
-    
     if sum(no_data)==0
         % note that this is a one way Zenith delay and not a slant delay. 
         % Units are in cm
-
 
         % saving individual estimates based on the time-stamp
         outfile_wet_before = [weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_ZWD_before.xyz'];
@@ -537,8 +536,6 @@ for d = 1:n_dates
             save([weather_model_datapath filesep date_before(d,:) filesep date_before(d,:) '_3D.mat'],'dry','wet','hgt','lon','lat','hgt_topo')
             clear wet dry hgt dry1 dry2 wet1 wet2 %%%SSS 4/16
         end
-        
-
                 
         % Output wet correction
         wetcorrection = wetcorrection1*f_before(d) +  wetcorrection2*f_after(d);
