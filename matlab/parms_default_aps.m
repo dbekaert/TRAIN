@@ -41,6 +41,7 @@ function parms_default_aps()
 % 08/2014   DB:     Add option to use recalibrated MODIS data
 % 01/2016   DB:     Include powerlaw plane flag
 % 04/2016   DB:     Adding MERRA support
+% 02/2018   KM:     Adding NARR support
 
 parmfile='parms_aps.mat';
 parent_flag=0;
@@ -369,6 +370,12 @@ end
 if ~isfield(parms,'era_data_type')
     % ERA-I data website (BADC or ECMWF)
     parms.era_data_type ='ECMWF';
+end
+
+%% regarding NARR
+if ~isfield(parms,'narr_datapath')
+    % NARR data path
+    parms.narr_datapath = [];
 end
 
 
