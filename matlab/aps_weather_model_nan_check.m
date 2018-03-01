@@ -1,6 +1,6 @@
 function [ Temp,e,Geopot,P,longrid,latgrid] = aps_weather_model_nan_check( Temp,e,Geopot,P,longrid,latgrid);
-% Function which wills in the gaps in the weather model data with the
-% neirest neighbor value, or from the level above.
+% Function which fills in the gaps in the weather model data with the
+% nearest neighbor value, or from the level above.
 %
 %     Copyright (C) 2016  Bekaert David 
 %     davidbekaert.com
