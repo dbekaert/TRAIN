@@ -193,7 +193,7 @@ if orderflag==1
             fprintf(['Downloading: ' downloadfile file_ext '\n'])
             try
                 pause(5); 
-                pass_to_cmd=['wget --user ',usern,' --password ', pass,' ''',filesTOdownlaod(k,:),'''',' -O ',downloadFILEname(k,:)];
+                 pass_to_cmd=['wget --no-check-certificate --user ',usern,' --password ', pass,' ''',filesTOdownlaod(k,:),'''',' -O ',downloadFILEname(k,:)];
                 [a,b] = system(pass_to_cmd);
                 clear a b pass_to_cmd;
             catch ME
@@ -221,7 +221,7 @@ if orderflag==1
                 fprintf(['Downloading: ' downloadfile file_ext '\n'])
                 try
                     pause(5); 
-                    pass_to_cmd=['wget --user ',usern,' --password ', pass,' ''',filesTOdownlaod(k,:),'''',' -O ',downloadFILEname(k,:)];
+                    pass_to_cmd=['wget --no-check-certificate --user ',usern,' --password ', pass,' ''',filesTOdownlaod(k,:),'''',' -O ',downloadFILEname(k,:)];
                     [a,b] = system(pass_to_cmd);
                     clear a b pass_to_cmd;
                 catch ME
