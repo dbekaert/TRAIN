@@ -37,7 +37,7 @@ fi
 password=$1
 username=$2
 filelist=$3
-maindirectory=$(pwd)
+
 echo $curdir
 for f in `cat $filelist`
 do
@@ -56,7 +56,7 @@ ftp_link=ftp://ftp.ceda.ac.uk/badc/ecmwf-era-interim/data/gg/ap/$year/$month/$da
         cd $date
 	echo $file
 	ncftpget -u $username -p $password $ftp_link
-	cd $maindirectory
+	cd ..
 	
 done
 
