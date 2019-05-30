@@ -18,6 +18,7 @@ function [] = aps_era5_ECMWF_Python(timing,wheatherregstr)
 %     51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 %
 % By Bekaert Davide -- June 2017
+% Modified by Marin Govorcin -- May 2019 to use CDSapi
 %
 % modifications:
 
@@ -26,37 +27,27 @@ month = timing(5:6);
 day = timing(7:8);
 htime = timing(9:10);
 datestr = [year,'-',month,'-',day]; 
-
+tar = ['ggap' num2str(timing(1:10)) '00.nc'];
 pythonsc_path = [timing,'.py'];
 fid = fopen(pythonsc_path,'w');
 fprintf(fid,'#!/usr/bin/env python\n');
 fprintf(fid,'\n');
-fprintf(fid,'from ecmwfapi import ECMWFDataServer\n');
+fprintf(fid,'import cdsapi\n');
 fprintf(fid,'\n');
 fprintf(fid,'# To run this example, you need an API key\n');
 fprintf(fid,'# available from https://api.ecmwf.int/v1/key/\n');
 fprintf(fid,'\n');
-fprintf(fid,'server = ECMWFDataServer()\n');
+fprintf(fid,'c = cdsapi.Client()\n');
 fprintf(fid,'\n');
-fprintf(fid,'server.retrieve({\n');
-fprintf(fid,'          ''dataset'' : "era5_test",\n');
-fprintf(fid,'          ''type''    : "an",\n');
-fprintf(fid,'          ''stream''  : "oper",\n');
-fprintf(fid,'          ''levtype'' : "pl",\n');
-fprintf(fid,'          ''param''   : "129.128/130.128/157.128/246.128",\n');
-fprintf(fid,'          ''date''    : "%s",\n',datestr);
+fprintf(fid,'c.retrieve(''reanalysis-era5-pressure-levels'',{\n');
+fprintf(fid,'          ''variable'' : [''geopotential'',''relative_humidity'',''temperature''],\n');
+fprintf(fid,'          ''pressure_level''    : [''1'',''2'',''3'',''5'',''7'',''10'',''20'',''30'',''50'',''70'',''100'',''125'',''150'',''175'',''200'',''225'',''250'',''300'',''350'',''400'',''450'', ''500'',''550'',''600'',''650'',''700'',''750'',''775'',''800'',''825'',''850'',''875'',''900'',''925'',''950'',''975'',''1000''],\n');
+fprintf(fid,'          ''product_type''  : ''reanalysis'',\n');
+fprintf(fid,'          ''year''    : "%s",\n',year);
+fprintf(fid,'          ''month''   : "%s",\n',month);
+fprintf(fid,'          ''day''     : "%s",\n',day);
 fprintf(fid,'          ''time''    : "%s",\n',htime);
-fprintf(fid,'          ''format''  : "netcdf",\n');
-fprintf(fid,'          ''grid''    : "0.25/0.25",\n');
-
-
-fprintf(fid,'          ''step''    : "0",\n');
-fprintf(fid,'          ''levelist'': "1/2/3/5/7/10/20/30/50/70/100/125/150/175/200/225/250/300/350/400/450/500/550/600/650/700/750/775/800/825/850/875/900/925/950/975/1000",\n');
-fprintf(fid,'          ''resol''   : "auto",\n');
-fprintf(fid,'          ''area''    : "%s",\n',wheatherregstr);
-
-
-fprintf(fid,['          ''target''  : "ggap' num2str(timing(1:10)) '00.nc",\n']);
-fprintf(fid,'                })\n');
+fprintf(fid,'          ''format''  : ''netcdf'',\n');
+fprintf(fid,'                },\n "%s")\n',tar);
 
 

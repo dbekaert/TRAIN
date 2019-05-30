@@ -106,6 +106,9 @@ stamps_processed = getparm_aps('stamps_processed',1);
 if strcmp(model_type,'narr')
     timelist_model = ['0000' ;'0300'; '0600' ; '0900'; '1200' ;'1500'; '1800' ;'2100'; '0000'];
     model_lag = 8*7;    % days
+elseif strcmp(model_type,'era5')
+    timelist_model= ['0000' ; '0100';'0200';'0300';'0400' ;'0500';'0600' ;'0700';'0800';'0900';'1000' ;'1100'; '1200' ;'1300';'1400';'1500';'1600' ;'1700'; '1800' ;'1900';'2000';'2100';'2200' ;'2300'; '0000'];       % the time interval the model is outputed
+    model_lag = 0; % ? check lags
 else
     timelist_model= ['0000' ; '0600' ; '1200' ; '1800' ; '0000'];       % the time interval the model is outputed
     model_lag = 0; % ? check lags
@@ -114,7 +117,7 @@ era_data_type = [];                                                 % the weathe
 
 
 %%% Updating specific weather model information
-if strcmpi(model_type,'era')
+if strcmpi(model_type,'era') || strcmpi(model_type,'era5')
     weather_model_datapath = getparm_aps('era_datapath',1);
     era_data_type = getparm_aps('era_data_type');         % the datatype of the model either BADC or ERA
 elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
@@ -197,7 +200,7 @@ for d = 1:n_dates
         else
                
             % loading the weather model data
-            if  strcmpi(model_type,'era')
+            if  strcmpi(model_type,'era') 
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
             elseif  strcmpi(model_type,'era5')
                  [ Temp,e,Geopot,P,longrid,latgrid,xx,yy,lon0360_flag] =  aps_load_era(file,era_data_type) ;
