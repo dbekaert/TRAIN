@@ -27,7 +27,7 @@ month = timing(5:6);
 day = timing(7:8);
 htime = timing(9:10);
 datestr = [year,'-',month,'-',day]; 
-tar = ['ggap' num2str(timing(1:10)) '00.nc'];
+target = ['ggap' num2str(timing(1:10)) '00.nc'];
 pythonsc_path = [timing,'.py'];
 fid = fopen(pythonsc_path,'w');
 fprintf(fid,'#!/usr/bin/env python\n');
@@ -48,6 +48,6 @@ fprintf(fid,'          ''month''   : "%s",\n',month);
 fprintf(fid,'          ''day''     : "%s",\n',day);
 fprintf(fid,'          ''time''    : "%s",\n',htime);
 fprintf(fid,'          ''format''  : ''netcdf'',\n');
-fprintf(fid,'                },\n "%s")\n',tar);
+fprintf(fid,'                },\n "%s")\n',target);
 
 
