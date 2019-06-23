@@ -74,7 +74,10 @@ end
 lambda = getparm_aps('lambda',1)*100;                       % radar wavelength in cm
 datestructure = 'yyyymmdd';                               % assumed date structure for era
 inc_angle =  getparm_aps('look_angle',1);
-
+% check if wavelength is specified
+if isempty(lambda)
+    error('Specify the wavelength, lambda is empty')
+end
 
 % loading the data
 if strcmp(stamps_processed,'y')
