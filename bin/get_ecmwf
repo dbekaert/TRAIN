@@ -47,13 +47,17 @@ do
 	year=`echo $f | gawk 'BEGIN {FS="/"} {print substr($(NF),5,4)}'`
 
 ftp_link=ftp://ftp.ceda.ac.uk/badc/ecmwf-era-interim/data/gg/ap/$year/$month/$day/$f
-	
-	echo $day
-file=${f}
-mkdir $date
-cd $date
+        
+# make the director for specifc date if it didn't exist!
+    if [ ! -d "$date" ] ; then
+       mkdir $date
+    fi
+   
+        cd $date
 	echo $file
 	ncftpget -u $username -p $password $ftp_link
+	cd ..
+	
 done
 
 
