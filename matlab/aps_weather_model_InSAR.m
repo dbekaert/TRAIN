@@ -62,7 +62,7 @@ ll_matfile = getparm_aps('ll_matfile',1);
 ifgday_matfile = getparm_aps('ifgday_matfile');
 
 model_type = lower(model_type);
-if strcmpi(model_type,'era')
+if strcmpi(model_type,'era') || strcmpi(model_type,'era5') 
     weather_model_datapath = getparm_aps('era_datapath',1);
 elseif strcmpi(model_type,'merra') || strcmpi(model_type,'merra2')
     weather_model_datapath = getparm_aps('merra_datapath',1);
